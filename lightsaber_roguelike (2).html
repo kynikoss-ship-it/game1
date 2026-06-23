@@ -1,0 +1,2171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>광선검 키우기 - 사이버 로그라이크</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* 다크 테마(기본값) */
+    --bg-page: #0a0a0f;
+    --text-main: #e0e0e0;
+    --canvas-bg: #111;
+    --canvas-border: #00ffe0;
+    --canvas-glow: rgba(0,255,224,0.5);
+    --canvas-inner-glow: rgba(0,255,224,0.1);
+    --grid-line: rgba(0,255,224,0.05);
+    --hud-text: #00ffe0;
+    --hud-glow: rgba(0,255,224,0.5);
+    --hint-text: #888;
+    --hp-bar-bg: #222;
+    --hp-border: #ff2d95;
+    --hp-glow: rgba(255,45,149,0.5);
+    --hp-text: #ff6ec7;
+    --gold-text: #ffe600;
+    --panel-bg: #14141c;
+    --panel-border: #ff2d95;
+    --panel-glow: rgba(255,45,149,0.5);
+    --panel-title: #ff2d95;
+    --gold-display-bg: rgba(255,230,0,0.05);
+    --gold-display-border: rgba(255,230,0,0.3);
+    --card-bg: #1c1c28;
+    --card-border: #00ffe0;
+    --upgrade-title: #00ffe0;
+    --upgrade-desc: #999;
+    --upgrade-disabled-bg: #333;
+    --upgrade-disabled-text: #666;
+    --reset-bg: #220000;
+    --reset-border: #ff0044;
+    --reset-text: #ff0044;
+    --reset-hover-bg: #330000;
+    --themebtn-bg: #1c1c28;
+    --themebtn-border: #00ffe0;
+    --themebtn-text: #00ffe0;
+  }
+
+  body.light-theme {
+    --bg-page: #eef1f6;
+    --text-main: #222630;
+    --canvas-bg: #f7f8fb;
+    --canvas-border: #0099a8;
+    --canvas-glow: rgba(0,153,168,0.35);
+    --canvas-inner-glow: rgba(0,153,168,0.06);
+    --grid-line: rgba(0,100,120,0.08);
+    --hud-text: #006670;
+    --hud-glow: rgba(0,153,168,0.25);
+    --hint-text: #5a6270;
+    --hp-bar-bg: #dfe3ea;
+    --hp-border: #d6336c;
+    --hp-glow: rgba(214,51,108,0.3);
+    --hp-text: #b5285a;
+    --gold-text: #a87900;
+    --panel-bg: #ffffff;
+    --panel-border: #d6336c;
+    --panel-glow: rgba(214,51,108,0.25);
+    --panel-title: #c2255c;
+    --gold-display-bg: rgba(168,121,0,0.08);
+    --gold-display-border: rgba(168,121,0,0.3);
+    --card-bg: #f4f5f8;
+    --card-border: #0099a8;
+    --upgrade-title: #006670;
+    --upgrade-desc: #6a7280;
+    --upgrade-disabled-bg: #e2e4e8;
+    --upgrade-disabled-text: #9aa0aa;
+    --reset-bg: #ffe3e3;
+    --reset-border: #e03131;
+    --reset-text: #c92a2a;
+    --reset-hover-bg: #ffd0d0;
+    --themebtn-bg: #f4f5f8;
+    --themebtn-border: #0099a8;
+    --themebtn-text: #006670;
+  }
+
+  body {
+    background: var(--bg-page);
+    color: var(--text-main);
+    font-family: 'Consolas', 'Courier New', monospace;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 20px;
+    gap: 20px;
+    flex-wrap: wrap;
+    transition: background 0.25s, color 0.25s;
+  }
+  #gameWrap {
+    position: relative;
+    width: 800px;
+  }
+  #gameCanvas {
+    background: var(--canvas-bg);
+    border: 2px solid var(--canvas-border);
+    box-shadow: 0 0 20px var(--canvas-glow), inset 0 0 30px var(--canvas-inner-glow);
+    display: block;
+    cursor: crosshair;
+    transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+  }
+  #hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: var(--hud-text);
+    text-shadow: 0 0 5px var(--hud-glow);
+    pointer-events: none;
+  }
+  #hpBarOuter {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    width: 300px;
+    height: 18px;
+    background: var(--hp-bar-bg);
+    border: 1px solid var(--hp-border);
+    box-shadow: 0 0 8px var(--hp-glow);
+    pointer-events: none;
+  }
+  #hpBarInner {
+    height: 100%;
+    background: linear-gradient(90deg, #ff2d95, #ff6ec7);
+    width: 100%;
+    transition: width 0.15s ease-out;
+  }
+  #hpText {
+    position: absolute;
+    bottom: 10px;
+    left: 320px;
+    font-size: 13px;
+    color: var(--hp-text);
+    text-shadow: 0 0 5px var(--hp-glow);
+    pointer-events: none;
+  }
+  #goldText {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    font-size: 15px;
+    color: var(--gold-text);
+    text-shadow: 0 0 6px var(--gold-text);
+    pointer-events: none;
+  }
+  #controlHint {
+    position: absolute;
+    top: 34px;
+    left: 10px;
+    font-size: 11px;
+    color: var(--hint-text);
+    pointer-events: none;
+  }
+  #themeToggleBtn {
+    position: absolute;
+    top: 10px;
+    right: -2px;
+    transform: translateY(-130%);
+    background: var(--themebtn-bg);
+    border: 1px solid var(--themebtn-border);
+    color: var(--themebtn-text);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  #themeToggleBtn:hover {
+    box-shadow: 0 0 8px var(--themebtn-border);
+  }
+  #shop {
+    width: 340px;
+    background: var(--panel-bg);
+    border: 2px solid var(--panel-border);
+    box-shadow: 0 0 20px var(--panel-glow);
+    padding: 16px;
+    border-radius: 6px;
+    transition: background 0.25s, border-color 0.25s;
+  }
+  #shop h2 {
+    color: var(--panel-title);
+    text-shadow: 0 0 8px var(--panel-glow);
+    font-size: 18px;
+    margin-bottom: 12px;
+    text-align: center;
+    letter-spacing: 2px;
+  }
+  .shopGoldDisplay {
+    text-align: center;
+    color: var(--gold-text);
+    text-shadow: 0 0 6px var(--gold-text);
+    font-size: 16px;
+    margin-bottom: 16px;
+    padding: 8px;
+    background: var(--gold-display-bg);
+    border: 1px solid var(--gold-display-border);
+    border-radius: 4px;
+  }
+  .upgradeGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .upgradeCard {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .upgradeTitle {
+    color: var(--upgrade-title);
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+  }
+  .upgradeDesc {
+    font-size: 11px;
+    color: var(--upgrade-desc);
+  }
+  .upgradeBtn {
+    background: linear-gradient(90deg, #00ffe0, #0080ff);
+    border: none;
+    color: #000;
+    font-weight: bold;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 12px;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .upgradeBtn:hover:not(:disabled) {
+    box-shadow: 0 0 12px #00ffe0;
+    transform: translateY(-1px);
+  }
+  .upgradeBtn:disabled {
+    background: var(--upgrade-disabled-bg);
+    color: var(--upgrade-disabled-text);
+    cursor: not-allowed;
+  }
+  #resetBtn {
+    margin-top: 14px;
+    width: 100%;
+    background: var(--reset-bg);
+    border: 1px solid var(--reset-border);
+    color: var(--reset-text);
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  #resetBtn:hover {
+    background: var(--reset-hover-bg);
+    box-shadow: 0 0 10px var(--reset-border);
+  }
+
+  /* 버프 선택 카드 오버레이 */
+  #buffOverlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 10;
+  }
+  #buffOverlay h2 {
+    color: #00ffe0;
+    text-shadow: 0 0 10px #00ffe0;
+    margin-bottom: 20px;
+    font-size: 22px;
+    letter-spacing: 3px;
+  }
+  #buffCards {
+    display: flex;
+    gap: 18px;
+  }
+  .buffCard {
+    width: 160px;
+    height: 200px;
+    background: linear-gradient(160deg, var(--card-bg), var(--panel-bg));
+    border: 2px solid var(--panel-border);
+    box-shadow: 0 0 15px var(--panel-glow);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 14px;
+    cursor: pointer;
+    text-align: center;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .buffCard:hover {
+    transform: translateY(-8px) scale(1.04);
+    box-shadow: 0 0 25px var(--card-border);
+    border-color: var(--card-border);
+  }
+  .buffIcon {
+    font-size: 36px;
+    margin-bottom: 12px;
+  }
+  .buffName {
+    color: var(--text-main);
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 8px;
+  }
+  .buffDesc {
+    color: var(--upgrade-desc);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  /* 게임 오버 오버레이 */
+  #gameOverOverlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(20,0,0,0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 10;
+  }
+  #gameOverOverlay h1 {
+    color: #ff0044;
+    text-shadow: 0 0 20px #ff0044;
+    font-size: 42px;
+    margin-bottom: 10px;
+    letter-spacing: 4px;
+  }
+  #gameOverOverlay p {
+    color: #ccc;
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+  #restartBtn {
+    background: linear-gradient(90deg, #ff2d95, #ff0044);
+    border: none;
+    color: #fff;
+    font-weight: bold;
+    padding: 12px 28px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 15px;
+    box-shadow: 0 0 15px #ff0044;
+  }
+  #restartBtn:hover {
+    box-shadow: 0 0 25px #ff0044;
+  }
+
+  #stageBanner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 40px;
+    color: var(--hud-text);
+    text-shadow: 0 0 20px var(--hud-glow);
+    opacity: 0;
+    pointer-events: none;
+    letter-spacing: 4px;
+    z-index: 5;
+  }
+
+  /* 확인 모달 (네이티브 confirm() 대체 - 일부 임베드 환경에서 confirm이 차단되는 문제 해결) */
+  #confirmOverlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+  }
+  #confirmBox {
+    width: 320px;
+    background: var(--panel-bg);
+    border: 2px solid var(--panel-border);
+    box-shadow: 0 0 20px var(--panel-glow);
+    border-radius: 8px;
+    padding: 22px;
+    text-align: center;
+  }
+  #confirmMessage {
+    color: var(--text-main);
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 18px;
+  }
+  #confirmBtnRow {
+    display: flex;
+    gap: 10px;
+  }
+  #confirmBtnRow button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  #confirmYesBtn {
+    background: linear-gradient(90deg, #ff2d95, #ff0044);
+    color: #fff;
+  }
+  #confirmYesBtn:hover {
+    box-shadow: 0 0 12px #ff0044;
+  }
+  #confirmNoBtn {
+    background: var(--card-bg);
+    color: var(--text-main);
+    border: 1px solid var(--card-border);
+  }
+  #confirmNoBtn:hover {
+    box-shadow: 0 0 8px var(--card-border);
+  }
+</style>
+</head>
+<body>
+
+<div id="gameWrap">
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="hud">
+    <div id="stageInfo">STAGE 1</div>
+    <div id="monsterInfo">남은 몬스터: 10</div>
+  </div>
+  <div id="controlHint">이동: W A S D / 방향키 · 공격: 자동 (10스테이지마다 보스 출현)</div>
+  <button id="themeToggleBtn">☀ 라이트모드</button>
+  <div id="hpBarOuter"><div id="hpBarInner"></div></div>
+  <div id="hpText">100 / 100</div>
+  <div id="goldText">GOLD: 0</div>
+  <div id="stageBanner"></div>
+
+  <div id="buffOverlay">
+    <h2>STAGE CLEAR! 강화를 선택하세요</h2>
+    <div id="buffCards"></div>
+  </div>
+
+  <div id="gameOverOverlay">
+    <h1>GAME OVER</h1>
+    <p id="gameOverStats"></p>
+    <button id="restartBtn">스테이지 1부터 다시 시작</button>
+  </div>
+
+  <div id="confirmOverlay">
+    <div id="confirmBox">
+      <p id="confirmMessage">정말로 모든 골드와 영구 강화 데이터를 초기화하시겠습니까?</p>
+      <div id="confirmBtnRow">
+        <button id="confirmYesBtn">초기화</button>
+        <button id="confirmNoBtn">취소</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="shop">
+  <h2>⚙ 영구 강화 상점 ⚙</h2>
+  <div class="shopGoldDisplay">보유 골드: <span id="shopGold">0</span> G</div>
+  <div class="upgradeGrid" id="upgradeGrid"></div>
+  <button id="resetBtn">전체 데이터 초기화</button>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   0. 저장 데이터 / 영구 업그레이드 정의
+========================================================= */
+const SAVE_KEY = "lightsaber_roguelike_save_v1";
+
+const upgradeDefs = [
+  {
+    key: "atk",
+    name: "기본 공격력",
+    desc: "광선검의 기본 공격력이 증가합니다.",
+    baseCost: 10,
+    baseValue: 10,
+    perLevel: 4,
+    unit: ""
+  },
+  {
+    key: "atkSpeed",
+    name: "공격 속도",
+    desc: "초당 자동 회전 베기 속도가 증가합니다. (자동발사 쿨다운 감소)",
+    baseCost: 15,
+    baseValue: 1.0,   // 초당 자동 공격 횟수
+    perLevel: 0.12,
+    unit: "/s"
+  },
+  {
+    key: "saberLength",
+    name: "광선검 길이",
+    desc: "광선검의 길이가 늘어나 더 넓은 범위를 타격합니다.",
+    baseCost: 12,
+    baseValue: 70,
+    perLevel: 6,
+    unit: "px"
+  },
+  {
+    key: "autoGold",
+    name: "초당 골드 수급",
+    desc: "전투 중이 아니어도 시간이 지나면 골드를 자동으로 얻습니다.",
+    baseCost: 8,
+    baseValue: 0,
+    perLevel: 1,
+    unit: "G/s"
+  }
+];
+
+function defaultSave(){
+  return {
+    gold: 0,
+    levels: { atk: 0, atkSpeed: 0, saberLength: 0, autoGold: 0 },
+    bestStage: 1
+  };
+}
+
+function loadSave(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return defaultSave();
+    const parsed = JSON.parse(raw);
+    const d = defaultSave();
+    return {
+      gold: typeof parsed.gold === "number" ? parsed.gold : d.gold,
+      levels: Object.assign(d.levels, parsed.levels || {}),
+      bestStage: parsed.bestStage || 1
+    };
+  }catch(e){
+    return defaultSave();
+  }
+}
+
+function writeSave(){
+  localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+}
+
+let save = loadSave();
+
+function upgradeCost(def){
+  return Math.floor(def.baseCost * Math.pow(1.5, save.levels[def.key]));
+}
+
+function upgradeCurrentValue(def){
+  return def.baseValue + def.perLevel * save.levels[def.key];
+}
+
+/* =========================================================
+   1. 캔버스 / 기본 셋업
+========================================================= */
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const W = canvas.width, H = canvas.height;
+
+const hpBarInner = document.getElementById("hpBarInner");
+const hpText = document.getElementById("hpText");
+const goldText = document.getElementById("goldText");
+const shopGoldEl = document.getElementById("shopGold");
+const stageInfoEl = document.getElementById("stageInfo");
+const monsterInfoEl = document.getElementById("monsterInfo");
+const stageBannerEl = document.getElementById("stageBanner");
+
+const buffOverlay = document.getElementById("buffOverlay");
+const buffCardsEl = document.getElementById("buffCards");
+const gameOverOverlay = document.getElementById("gameOverOverlay");
+const gameOverStatsEl = document.getElementById("gameOverStats");
+const restartBtn = document.getElementById("restartBtn");
+
+/* =========================================================
+   1-1. 다크/라이트 테마 전환 (요구사항 3)
+========================================================= */
+const THEME_KEY = "lightsaber_roguelike_theme_v1";
+const themeToggleBtn = document.getElementById("themeToggleBtn");
+let currentGridColor = "rgba(0,255,224,0.05)"; // drawBackgroundGrid에서 매 프레임 재계산하지 않도록 캐싱
+
+function refreshGridColorCache(){
+  currentGridColor = getComputedStyle(document.body).getPropertyValue('--grid-line').trim()
+    || "rgba(0,255,224,0.05)";
+}
+
+function applyTheme(isLight){
+  document.body.classList.toggle("light-theme", isLight);
+  themeToggleBtn.textContent = isLight ? "🌙 다크모드" : "☀ 라이트모드";
+  refreshGridColorCache();
+}
+
+function loadThemePreference(){
+  try{
+    return localStorage.getItem(THEME_KEY) === "light";
+  }catch(e){
+    return false;
+  }
+}
+
+function saveThemePreference(isLight){
+  try{
+    localStorage.setItem(THEME_KEY, isLight ? "light" : "dark");
+  }catch(e){ /* localStorage 접근 불가 시 조용히 무시 */ }
+}
+
+let isLightTheme = loadThemePreference();
+applyTheme(isLightTheme);
+
+themeToggleBtn.addEventListener("click", ()=>{
+  isLightTheme = !isLightTheme;
+  applyTheme(isLightTheme);
+  saveThemePreference(isLightTheme);
+});
+
+/* =========================================================
+   2. 게임 상태
+========================================================= */
+const PLAYER_BASE_MAXHP = 100;
+const PLAYER_BASE_MOVE_SPEED = 200; // px/s
+const PLAYER_RADIUS = 18; // 몸통 충돌/그리기 기준 반경
+
+let game = {
+  paused: false,
+  gameOver: false,
+  stage: 1,
+  monstersToKill: 10,
+  monstersKilledThisStage: 0,
+  monsters: [],
+  projectiles: [],
+  particles: [],
+  damagePopups: [],
+  isBossActive: false,
+  mouse: { x: W/2 + 100, y: H/2 },
+  lastTime: 0,
+  autoGoldAccum: 0,
+  spawnTimer: 0,
+  keys: {}, // 눌려있는 키 상태
+  player: {
+    x: W/2,
+    y: H/2,
+    facing: 1,          // 1: 오른쪽, -1: 왼쪽
+    walkCycle: 0,        // 걷기 애니메이션 진행도
+    isMoving: false,
+    hp: PLAYER_BASE_MAXHP,
+    maxHp: PLAYER_BASE_MAXHP,
+    saberAngle: 0,
+    swingActive: false,
+    swingProgress: 0,
+    swingStartAngle: 0,
+    swingDuration: 0.18, // 1바퀴 도는데 걸리는 기준 시간(초)
+    autoCooldown: 0,
+    invuln: 0,
+    spinHitSet: null
+  },
+  runBuffs: {
+    atkMult: 1.0,
+    speedMult: 1.0,
+    critChance: 0.05,
+    hpOnKill: 0
+  }
+};
+
+/* =========================================================
+   3. 버프(로그라이크, 런 한정) 정의
+========================================================= */
+const buffPool = [
+  {
+    id: "atk50",
+    icon: "⚔",
+    name: "공격력 강화",
+    desc: "이번 판 한정, 공격력 +50%",
+    apply: () => { game.runBuffs.atkMult += 0.5; }
+  },
+  {
+    id: "spd30",
+    icon: "💨",
+    name: "신속",
+    desc: "이번 판 한정, 이동/공격 속도 +30%",
+    apply: () => { game.runBuffs.speedMult += 0.3; }
+  },
+  {
+    id: "crit15",
+    icon: "✨",
+    name: "치명타 강화",
+    desc: "이번 판 한정, 크리티컬 확률 +15%",
+    apply: () => { game.runBuffs.critChance += 0.15; }
+  },
+  {
+    id: "lifesteal",
+    icon: "❤",
+    name: "생명 흡수",
+    desc: "몬스터 처치 시 HP 2 회복",
+    apply: () => { game.runBuffs.hpOnKill += 2; }
+  }
+];
+
+function rollBuffChoices(){
+  const pool = buffPool.slice();
+  const chosen = [];
+  for(let i=0;i<3;i++){
+    if(pool.length === 0) break;
+    const idx = Math.floor(Math.random()*pool.length);
+    chosen.push(pool[idx]);
+    pool.splice(idx,1);
+  }
+  return chosen;
+}
+
+/* =========================================================
+   4. 몬스터 생성/스탯 (스테이지 복리 성장 + 타입 분기 + 보스)
+========================================================= */
+const BOSS_STAGE_INTERVAL = 10;
+
+function isBossStage(stage){
+  return stage % BOSS_STAGE_INTERVAL === 0;
+}
+
+// 스테이지가 오를수록 처치해야 할 몬스터 수와 스폰 빈도를 함께 늘려
+// 초반부터도 동시에 여러 마리를 상대하는 긴장감을 준다 (요구사항 2)
+function monstersToKillForStage(stage){
+  return 10 + Math.floor(stage / 2) * 2; // 2스테이지마다 목표치 +2
+}
+function spawnIntervalForStage(stage){
+  return Math.max(0.35, 0.6 - stage * 0.01);
+}
+
+// 일반 몬스터 체력: 시작값을 높여 초반 단조로움을 줄이고, 성장률은 완만하게 유지해
+// 후반 스테이지에서 공격력 성장(선형)과의 괴리로 처치가 불가능해지는 것을 방지
+function monsterBaseHP(stage){
+  return Math.floor(26 * Math.pow(1.155, stage - 1));
+}
+function monsterBaseGold(stage){
+  return Math.floor(4 * Math.pow(1.16, stage - 1));
+}
+function monsterBaseSpeed(stage){
+  return 55 + Math.min(stage * 2.2, 100);
+}
+
+// 원거리 몬스터는 스테이지 3부터 등장, 스테이지가 오를수록 등장 비율 증가
+function getRangedRatio(stage){
+  if(stage < 3) return 0;
+  return Math.min(0.40, 0.12 + (stage - 3) * 0.025);
+}
+// 돌진형(dasher)은 스테이지 4부터 등장
+function getDasherRatio(stage){
+  if(stage < 4) return 0;
+  return Math.min(0.26, 0.10 + (stage - 4) * 0.016);
+}
+// 불규칙 이동형(erratic)은 스테이지 6부터 등장
+function getErraticRatio(stage){
+  if(stage < 6) return 0;
+  return Math.min(0.20, 0.08 + (stage - 6) * 0.012);
+}
+
+function spawnAtEdge(){
+  const edge = Math.floor(Math.random()*4);
+  let x, y;
+  const margin = 20;
+  if(edge === 0){ x = -margin; y = Math.random()*H; }
+  else if(edge === 1){ x = W+margin; y = Math.random()*H; }
+  else if(edge === 2){ x = Math.random()*W; y = -margin; }
+  else { x = Math.random()*W; y = H+margin; }
+  return {x, y};
+}
+
+// 가중치 기반 타입 선택: ranged, dasher, erratic 비율을 합산한 뒤 나머지는 melee
+function rollMonsterType(stage){
+  const rangedP = getRangedRatio(stage);
+  const dasherP = getDasherRatio(stage);
+  const erraticP = getErraticRatio(stage);
+
+  const roll = Math.random();
+  if(roll < rangedP) return "ranged";
+  if(roll < rangedP + dasherP) return "dasher";
+  if(roll < rangedP + dasherP + erraticP) return "erratic";
+  return "melee";
+}
+
+function spawnMonster(){
+  const {x, y} = spawnAtEdge();
+  const stage = game.stage;
+  const type = rollMonsterType(stage);
+  const hp = monsterBaseHP(stage);
+
+  const base = {
+    x, y,
+    flashTimer: 0,
+    facing: 1,
+    walkCycle: Math.random()*10,
+    dead: false
+  };
+
+  if(type === "ranged"){
+    game.monsters.push(Object.assign(base, {
+      type: "ranged",
+      radius: 14,
+      hp: Math.floor(hp * 0.7),           // 원거리형은 체력이 낮지만 위협적인 투사체로 보완
+      maxHp: Math.floor(hp * 0.7),
+      speed: monsterBaseSpeed(stage) * 0.7,
+      preferredDist: 170 + Math.random()*40, // 이 거리를 유지하려 함
+      fireCooldown: 1.0 + Math.random()*0.5,
+      fireInterval: Math.max(0.9, 1.8 - stage * 0.03),
+      hueShift: Math.random()*30 - 15,
+      goldValue: monsterBaseGold(stage) * 2
+    }));
+  } else if(type === "dasher"){
+    // 돌진형: 평소엔 느리게 거리를 좁히다가, 사거리 안에 들어오면 잠깐 멈춰 조준(텔레그래프) 후 고속 직선 돌진
+    game.monsters.push(Object.assign(base, {
+      type: "dasher",
+      radius: 16,
+      hp: Math.floor(hp * 1.1),
+      maxHp: Math.floor(hp * 1.1),
+      speed: monsterBaseSpeed(stage) * 0.6,    // 평상시엔 오히려 느림 -> 돌진의 의외성을 강조
+      dashSpeed: monsterBaseSpeed(stage) * 3.2,
+      dashRange: 220,                          // 이 거리 안에 들어오면 돌진 시도
+      dashState: "approach",                   // approach -> telegraph -> dashing -> recover
+      stateTimer: 0,
+      dashVx: 0, dashVy: 0,
+      dashCooldown: 0,                          // 돌진 후 재사용 대기
+      hueShift: Math.random()*20 - 10,
+      goldValue: Math.floor(monsterBaseGold(stage) * 1.4)
+    }));
+  } else if(type === "erratic"){
+    // 불규칙 이동형: 플레이어를 향해 다가오되, 사인파 노이즈를 섞어 지그재그/회피성 움직임을 보임
+    game.monsters.push(Object.assign(base, {
+      type: "erratic",
+      radius: 13,
+      hp: Math.floor(hp * 0.85),
+      maxHp: Math.floor(hp * 0.85),
+      speed: monsterBaseSpeed(stage) * 1.05,
+      noiseSeed: Math.random() * 1000,
+      noisePhase: 0,
+      hueShift: Math.random()*30 - 15,
+      goldValue: Math.floor(monsterBaseGold(stage) * 1.15)
+    }));
+  } else {
+    game.monsters.push(Object.assign(base, {
+      type: "melee",
+      radius: 15 + Math.random()*3,
+      hp: hp,
+      maxHp: hp,
+      speed: monsterBaseSpeed(stage) * (0.85 + Math.random()*0.3),
+      hueShift: Math.random()*40 - 20,
+      goldValue: monsterBaseGold(stage)
+    }));
+  }
+}
+
+// 보스 체력/공격력은 일반 몬스터 곡선보다 훨씬 가파르게 성장.
+// 기초값을 충분히 높여 자동공격만으로는 수초 이상 버텨야 하는 긴장감을 부여
+function bossBaseHP(stage){
+  const tier = stage / BOSS_STAGE_INTERVAL; // 1, 2, 3...
+  return Math.floor(1800 * Math.pow(1.55, tier - 1));
+}
+function bossBaseGold(stage){
+  const tier = stage / BOSS_STAGE_INTERVAL;
+  return Math.floor(150 * Math.pow(1.4, tier - 1));
+}
+function bossContactDamage(stage){
+  const tier = stage / BOSS_STAGE_INTERVAL;
+  return Math.floor(20 * Math.pow(1.18, tier - 1));
+}
+
+function spawnBoss(){
+  const stage = game.stage;
+  const hp = bossBaseHP(stage);
+  game.monsters.push({
+    type: "boss",
+    x: W/2,
+    y: -60,
+    radius: 42,
+    hp: hp,
+    maxHp: hp,
+    speed: 55,
+    flashTimer: 0,
+    hueShift: 0,
+    goldValue: bossBaseGold(stage),
+    contactDamage: bossContactDamage(stage),
+    facing: 1,
+    walkCycle: 0,
+    dead: false,
+    // 보스 전용 패턴 상태
+    phaseTimer: 2.0,        // 다음 패턴 발동까지 남은 시간
+    chargeState: "idle",    // idle -> charging(조준) -> dashing(돌진)
+    chargeTimer: 0,
+    chargeTargetX: 0,
+    chargeTargetY: 0,
+    burstCooldown: 3.5
+  });
+}
+
+/* =========================================================
+   5. 파티클 / 데미지 팝업
+========================================================= */
+function spawnHitParticles(x, y, color){
+  for(let i=0;i<10;i++){
+    const ang = Math.random()*Math.PI*2;
+    const spd = 60 + Math.random()*140;
+    game.particles.push({
+      x, y,
+      vx: Math.cos(ang)*spd,
+      vy: Math.sin(ang)*spd,
+      life: 0.4 + Math.random()*0.3,
+      age: 0,
+      color: color,
+      size: 2 + Math.random()*3
+    });
+  }
+}
+
+function spawnDamagePopup(x, y, value, isCrit){
+  game.damagePopups.push({
+    x, y, value,
+    isCrit,
+    age: 0,
+    life: 0.7,
+    vy: -50
+  });
+}
+
+/* =========================================================
+   6. 수학: 선분(Line Segment) - 원(Circle) 충돌 판정
+========================================================= */
+function segmentCircleCollision(px, py, qx, qy, cx, cy, r){
+  const dx = qx - px;
+  const dy = qy - py;
+  const lenSq = dx*dx + dy*dy;
+
+  let t;
+  if(lenSq === 0){
+    t = 0;
+  } else {
+    t = ((cx - px) * dx + (cy - py) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+  }
+
+  const closestX = px + t * dx;
+  const closestY = py + t * dy;
+
+  const distX = cx - closestX;
+  const distY = cy - closestY;
+  const distSq = distX*distX + distY*distY;
+
+  return distSq <= r*r;
+}
+
+/* =========================================================
+   7. 입력 처리
+========================================================= */
+canvas.addEventListener("mousemove", (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  game.mouse.x = (e.clientX - rect.left) * (W/rect.width);
+  game.mouse.y = (e.clientY - rect.top) * (H/rect.height);
+});
+
+const MOVE_KEYS = new Set(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"]);
+window.addEventListener("keydown", (e)=>{
+  const k = e.key.toLowerCase();
+  if(MOVE_KEYS.has(k)){
+    game.keys[k] = true;
+    e.preventDefault();
+  }
+});
+window.addEventListener("keyup", (e)=>{
+  const k = e.key.toLowerCase();
+  if(MOVE_KEYS.has(k)){
+    game.keys[k] = false;
+    e.preventDefault();
+  }
+});
+
+/* =========================================================
+   8. 영구 스탯 계산 (상점 레벨 → 실제 전투 스탯)
+========================================================= */
+function getEffectiveAtk(){
+  const base = upgradeCurrentValue(upgradeDefs.find(d=>d.key==="atk"));
+  return base * game.runBuffs.atkMult;
+}
+function getEffectiveAtkSpeed(){
+  const base = upgradeCurrentValue(upgradeDefs.find(d=>d.key==="atkSpeed"));
+  return base * game.runBuffs.speedMult;
+}
+function getEffectiveSaberLength(){
+  return upgradeCurrentValue(upgradeDefs.find(d=>d.key==="saberLength"));
+}
+function getEffectiveAutoGold(){
+  return upgradeCurrentValue(upgradeDefs.find(d=>d.key==="autoGold"));
+}
+function getEffectiveMoveSpeed(){
+  return PLAYER_BASE_MOVE_SPEED * game.runBuffs.speedMult;
+}
+
+/* =========================================================
+   9. 메인 업데이트 루프
+========================================================= */
+function update(dt){
+  if(game.paused || game.gameOver) return;
+
+  updatePlayerMovement(dt);
+  updatePlayerAiming();
+  updateSwing(dt);
+  updateAutoAttack(dt);
+  updateMonsters(dt);
+  updateProjectiles(dt);
+  updateParticles(dt);
+  updateDamagePopups(dt);
+  updateAutoGold(dt);
+  spawnLoop(dt);
+  checkGameOver();
+
+  if(isBossStage(game.stage)){
+    updateMonsterInfo();
+  }
+}
+
+/* --- 이동 처리 (요구사항 1 해결) --- */
+function updatePlayerMovement(dt){
+  const p = game.player;
+  let dx = 0, dy = 0;
+
+  if(game.keys["w"] || game.keys["arrowup"]) dy -= 1;
+  if(game.keys["s"] || game.keys["arrowdown"]) dy += 1;
+  if(game.keys["a"] || game.keys["arrowleft"]) dx -= 1;
+  if(game.keys["d"] || game.keys["arrowright"]) dx += 1;
+
+  const moving = (dx !== 0 || dy !== 0);
+  p.isMoving = moving;
+
+  if(moving){
+    const len = Math.hypot(dx, dy);
+    dx /= len; dy /= len;
+
+    const spd = getEffectiveMoveSpeed();
+    p.x += dx * spd * dt;
+    p.y += dy * spd * dt;
+
+    // 화면 경계 클램프 (캐릭터 반경만큼 안쪽으로)
+    p.x = Math.max(PLAYER_RADIUS, Math.min(W - PLAYER_RADIUS, p.x));
+    p.y = Math.max(PLAYER_RADIUS, Math.min(H - PLAYER_RADIUS, p.y));
+
+    p.walkCycle += dt * 10;
+    if(dx !== 0) p.facing = dx > 0 ? 1 : -1;
+  }
+}
+
+/* --- 마우스를 향한 조준 회전: 스윙 중이 아닐 때만 갱신 --- */
+function updatePlayerAiming(){
+  const p = game.player;
+  if(p.swingActive) return;
+
+  const dx = game.mouse.x - p.x;
+  const dy = game.mouse.y - p.y;
+  const targetAngle = Math.atan2(dy, dx);
+
+  let diff = targetAngle - p.saberAngle;
+  while(diff > Math.PI) diff -= Math.PI*2;
+  while(diff < -Math.PI) diff += Math.PI*2;
+
+  const turnSpeed = 14; // rad/s, 항상 일정 속도로 부드럽게 추적 (버프 영향 없음 -> 조준 안정성 확보)
+  const maxStep = turnSpeed * (1/60); // 프레임당 최대 회전을 고정 기준으로 근사
+  if(Math.abs(diff) < maxStep){
+    p.saberAngle = targetAngle;
+  } else {
+    p.saberAngle += Math.sign(diff) * maxStep;
+  }
+}
+
+function startSwing(){
+  const p = game.player;
+  p.swingActive = true;
+  p.swingProgress = 0;
+  p.swingStartAngle = p.saberAngle; // 현재 조준 각도에서 회전 시작 (한 번만 캡처)
+  p.spinHitSet = new Set();
+}
+
+function updateSwing(dt){
+  const p = game.player;
+  if(!p.swingActive) return;
+
+  const duration = p.swingDuration / game.runBuffs.speedMult;
+  const prevAngle = p.saberAngle;
+  p.swingProgress += dt / duration;
+
+  const clampedProgress = Math.min(p.swingProgress, 1);
+  const newAngle = p.swingStartAngle + clampedProgress * Math.PI * 2;
+  p.saberAngle = newAngle;
+
+  // 한 프레임 동안 회전한 각도 구간 전체를 검사해야 빠른 회전에서도 몬스터를 건너뛰지 않음.
+  // (검 끝부분의 이동거리가 몬스터 반경보다 커지는 경우, 단일 각도 검사만으로는 충돌을 놓칠 수 있음)
+  performSaberHitSwept(prevAngle, newAngle);
+
+  if(p.swingProgress >= 1){
+    p.swingActive = false;
+    p.swingProgress = 0;
+    p.spinHitSet = null;
+  }
+}
+
+function updateAutoAttack(dt){
+  const p = game.player;
+  p.autoCooldown -= dt;
+  if(p.autoCooldown <= 0){
+    const atkSpeed = getEffectiveAtkSpeed();
+    p.autoCooldown = 1 / Math.max(0.1, atkSpeed);
+    if(!p.swingActive){
+      startSwing();
+    }
+    // 스윙 중이었다면 쿨다운만 리셋하고 다음 기회에 발동 (요청을 큐에 쌓지 않음 -> 연타 버그 방지)
+  }
+}
+
+/*
+  스윙 도중 한 프레임에 회전한 각도 구간(prevAngle -> newAngle)을 여러 단계로 쪼개,
+  각 단계의 검 선분에 대해 충돌을 검사한다.
+  단일 각도만 검사하면 검 끝부분이 한 프레임에 몬스터 반경보다 더 멀리 이동해버려
+  중간에 있던 몬스터를 그대로 건너뛰는 문제가 있었음 (요구사항 2 버그 수정).
+*/
+function performSaberHitSwept(prevAngle, newAngle){
+  const p = game.player;
+  const len = getEffectiveSaberLength();
+
+  let delta = newAngle - prevAngle;
+  // 각도 차이가 거의 없으면(스윙 막 시작 시점 등) 최소 1단계는 검사
+  const absDelta = Math.abs(delta);
+
+  // 검 끝부분이 한 스텝에 이동하는 거리가 대략 몬스터 최소 반경(약 12px)의 절반을 넘지 않도록
+  // 필요한 단계 수를 계산. 각도 변화가 0이어도 최소 1단계는 보장.
+  const maxArcStep = 6; // px, 이 거리 이하로 쪼개면 어떤 크기의 몬스터도 통과시키지 않음
+  const arcLength = len * absDelta;
+  const steps = Math.max(1, Math.ceil(arcLength / maxArcStep));
+
+  for(let i = 1; i <= steps; i++){
+    const t = i / steps;
+    const angle = prevAngle + delta * t;
+    const x1 = p.x;
+    const y1 = p.y;
+    const x2 = p.x + Math.cos(angle) * len;
+    const y2 = p.y + Math.sin(angle) * len;
+
+    for(const m of game.monsters){
+      if(m.dead) continue;
+      if(p.spinHitSet && p.spinHitSet.has(m)) continue;
+
+      const hit = segmentCircleCollision(x1, y1, x2, y2, m.x, m.y, m.radius);
+      if(hit){
+        if(p.spinHitSet) p.spinHitSet.add(m);
+        dealDamageToMonster(m);
+      }
+    }
+  }
+}
+
+function dealDamageToMonster(m){
+  let dmg = getEffectiveAtk();
+  let isCrit = false;
+  if(Math.random() < game.runBuffs.critChance){
+    dmg *= 2;
+    isCrit = true;
+  }
+  m.hp -= dmg;
+  m.flashTimer = 0.12;
+  spawnDamagePopup(m.x, m.y - m.radius, Math.round(dmg), isCrit);
+
+  if(m.hp <= 0 && !m.dead){
+    m.dead = true;
+    killMonster(m);
+  }
+}
+
+function killMonster(m){
+  if(m.type === "boss"){
+    // 보스 처치 시 큰 폭발 이펙트 (파티클 다중 방출)
+    for(let i=0;i<4;i++){
+      spawnHitParticles(m.x, m.y, "#ffae00");
+      spawnHitParticles(m.x, m.y, "#ff2d95");
+      spawnHitParticles(m.x, m.y, "#00ffe0");
+    }
+    game.isBossActive = false;
+  } else {
+    spawnHitParticles(m.x, m.y, "#ff2d95");
+    spawnHitParticles(m.x, m.y, "#00ffe0");
+  }
+
+  save.gold += m.goldValue;
+  writeSave();
+  refreshGoldUI();
+
+  if(game.runBuffs.hpOnKill > 0){
+    game.player.hp = Math.min(game.player.maxHp, game.player.hp + game.runBuffs.hpOnKill);
+  }
+
+  game.monstersKilledThisStage++;
+  updateMonsterInfo();
+
+  if(game.monstersKilledThisStage >= game.monstersToKill){
+    onStageClear();
+  }
+}
+
+function updateMonsters(dt){
+  const p = game.player;
+  game.monsters = game.monsters.filter(m => !m.dead);
+
+  for(const m of game.monsters){
+    if(m.flashTimer > 0) m.flashTimer -= dt;
+
+    if(m.type === "ranged"){
+      updateRangedMonster(m, dt);
+    } else if(m.type === "boss"){
+      updateBossMonster(m, dt);
+    } else if(m.type === "dasher"){
+      updateDasherMonster(m, dt);
+    } else if(m.type === "erratic"){
+      updateErraticMonster(m, dt);
+    } else {
+      updateMeleeMonster(m, dt);
+    }
+  }
+
+  if(p.invuln > 0) p.invuln -= dt;
+}
+
+function updateMeleeMonster(m, dt){
+  const p = game.player;
+  const dx = p.x - m.x;
+  const dy = p.y - m.y;
+  const dist = Math.hypot(dx, dy) || 0.0001;
+
+  const stopDist = PLAYER_RADIUS + m.radius + 4;
+  if(dist > stopDist){
+    const nx = dx/dist, ny = dy/dist;
+    m.x += nx * m.speed * dt;
+    m.y += ny * m.speed * dt;
+    m.facing = nx > 0 ? 1 : -1;
+    m.walkCycle += dt * 8;
+  } else {
+    damagePlayer(14);
+  }
+}
+
+/*
+  돌진형(dasher) 패턴:
+  approach(천천히 접근) -> dashRange 안에 들어오면 telegraph(짧은 정지+경고 시각효과)
+  -> dashing(고속 직선 돌진, 도중 플레이어와 충돌 시 큰 데미지) -> recover(잠시 둔화) -> approach 복귀
+*/
+function updateDasherMonster(m, dt){
+  const p = game.player;
+  const dx = p.x - m.x;
+  const dy = p.y - m.y;
+  const dist = Math.hypot(dx, dy) || 0.0001;
+  const nx = dx/dist, ny = dy/dist;
+
+  if(m.dashCooldown > 0) m.dashCooldown -= dt;
+
+  if(m.dashState === "approach"){
+    const stopDist = PLAYER_RADIUS + m.radius + 4;
+    if(dist > stopDist){
+      m.x += nx * m.speed * dt;
+      m.y += ny * m.speed * dt;
+      m.facing = nx > 0 ? 1 : -1;
+      m.walkCycle += dt * 6;
+    } else {
+      damagePlayer(14);
+    }
+
+    if(dist <= m.dashRange && m.dashCooldown <= 0){
+      m.dashState = "telegraph";
+      m.stateTimer = 0.45; // 경고 시간 -> 플레이어가 회피 판단할 여유
+      m.telegraphTargetX = p.x;
+      m.telegraphTargetY = p.y;
+    }
+    return;
+  }
+
+  if(m.dashState === "telegraph"){
+    m.stateTimer -= dt;
+    if(m.stateTimer <= 0){
+      const tdx = m.telegraphTargetX - m.x;
+      const tdy = m.telegraphTargetY - m.y;
+      const len = Math.hypot(tdx, tdy) || 0.0001;
+      m.dashVx = (tdx/len) * m.dashSpeed;
+      m.dashVy = (tdy/len) * m.dashSpeed;
+      m.dashState = "dashing";
+      // 돌진 지속시간을 "목표까지의 거리 / 돌진속도"로 계산해 트리거된 거리만큼 끝까지 주파하게 함.
+      // 기존 고정값(0.35초)은 돌진속도 기준 실제 이동거리가 dashRange(220px)에 못 미쳐
+      // 끝까지 도달하지 못하고 멈추는 문제가 있었음(요구사항 1 버그 수정).
+      // 화면을 가로질러 갈 가능성을 대비해 약간의 여유(1.3배)를 더하고, 최소/최대 지속시간으로 캡.
+      const travelTime = (len / m.dashSpeed) * 1.3;
+      m.stateTimer = Math.max(0.3, Math.min(travelTime, 1.5));
+      m.facing = m.dashVx > 0 ? 1 : -1;
+    }
+    return;
+  }
+
+  if(m.dashState === "dashing"){
+    m.stateTimer -= dt;
+    m.x += m.dashVx * dt;
+    m.y += m.dashVy * dt;
+    m.x = Math.max(m.radius, Math.min(W - m.radius, m.x));
+    m.y = Math.max(m.radius, Math.min(H - m.radius, m.y));
+    m.walkCycle += dt * 20;
+
+    if(dist < m.radius + PLAYER_RADIUS){
+      damagePlayer(20); // 돌진 충돌은 일반 접촉보다 강한 데미지
+    }
+
+    if(m.stateTimer <= 0){
+      m.dashState = "recover";
+      m.stateTimer = 0.6;
+    }
+    return;
+  }
+
+  if(m.dashState === "recover"){
+    m.stateTimer -= dt;
+    if(m.stateTimer <= 0){
+      m.dashState = "approach";
+      m.dashCooldown = 1.5 + Math.random()*0.8;
+    }
+  }
+}
+
+/*
+  불규칙 이동형(erratic) 패턴:
+  플레이어 방향 벡터에 시간에 따라 변하는 사인파 노이즈를 섞어 지그재그로 접근.
+  광선검의 360도 자동 회전 타이밍을 예측해서 피하기 어렵게 만드는 효과.
+*/
+function updateErraticMonster(m, dt){
+  const p = game.player;
+  const dx = p.x - m.x;
+  const dy = p.y - m.y;
+  const dist = Math.hypot(dx, dy) || 0.0001;
+  const nx = dx/dist, ny = dy/dist;
+
+  m.noisePhase += dt * 4;
+  // 진행 방향에 대해 수직인 노이즈 성분을 더해 지그재그 효과 생성
+  const perpX = -ny, perpY = nx;
+  const noise = Math.sin(m.noisePhase + m.noiseSeed) * 0.8;
+
+  const moveX = nx + perpX * noise;
+  const moveY = ny + perpY * noise;
+  const moveLen = Math.hypot(moveX, moveY) || 0.0001;
+
+  const stopDist = PLAYER_RADIUS + m.radius + 4;
+  if(dist > stopDist){
+    m.x += (moveX/moveLen) * m.speed * dt;
+    m.y += (moveY/moveLen) * m.speed * dt;
+    m.facing = moveX > 0 ? 1 : -1;
+    m.walkCycle += dt * 10;
+  } else {
+    damagePlayer(14);
+  }
+}
+
+// 원거리 몬스터: 선호 거리(preferredDist)를 유지하며 거리를 벗어나면 접근/후퇴, 주기적으로 투사체 발사
+function updateRangedMonster(m, dt){
+  const p = game.player;
+  const dx = p.x - m.x;
+  const dy = p.y - m.y;
+  const dist = Math.hypot(dx, dy) || 0.0001;
+  const nx = dx/dist, ny = dy/dist;
+
+  const tolerance = 25;
+  if(dist > m.preferredDist + tolerance){
+    m.x += nx * m.speed * dt;
+    m.y += ny * m.speed * dt;
+    m.walkCycle += dt * 8;
+  } else if(dist < m.preferredDist - tolerance){
+    m.x -= nx * m.speed * dt;
+    m.y -= ny * m.speed * dt;
+    m.walkCycle += dt * 8;
+  }
+  m.facing = nx > 0 ? 1 : -1;
+
+  m.fireCooldown -= dt;
+  if(m.fireCooldown <= 0){
+    m.fireCooldown = m.fireInterval;
+    fireProjectileAt(m.x, m.y, p.x, p.y, {
+      speed: 220,
+      damage: 10 + Math.floor(game.stage * 0.5),
+      color: "#ff2d95",
+      radius: 6
+    });
+  }
+}
+
+/*
+  보스 패턴:
+  idle(대기, 천천히 추격) -> 일정 시간마다 다음 둘 중 하나를 무작위 실행
+   1) 돌진(charging으로 잠깐 조준 후 dashing으로 플레이어 방향 직선 돌진)
+   2) 방사형 투사체 버스트(8방향 동시 발사)
+*/
+function updateBossMonster(m, dt){
+  const p = game.player;
+
+  if(m.chargeState === "charging"){
+    m.chargeTimer -= dt;
+    m.walkCycle += dt * 4;
+    if(m.chargeTimer <= 0){
+      m.chargeState = "dashing";
+      const dx = m.chargeTargetX - m.x;
+      const dy = m.chargeTargetY - m.y;
+      const len = Math.hypot(dx, dy) || 0.0001;
+      m.dashVx = (dx/len) * 480;
+      m.dashVy = (dy/len) * 480;
+      m.chargeTimer = 0.45; // 돌진 지속 시간
+    }
+    return;
+  }
+
+  if(m.chargeState === "dashing"){
+    m.chargeTimer -= dt;
+    m.x += m.dashVx * dt;
+    m.y += m.dashVy * dt;
+    m.x = Math.max(m.radius, Math.min(W - m.radius, m.x));
+    m.y = Math.max(m.radius, Math.min(H - m.radius, m.y));
+
+    const dx = p.x - m.x;
+    const dy = p.y - m.y;
+    if(Math.hypot(dx, dy) < m.radius + PLAYER_RADIUS){
+      damagePlayer(m.contactDamage);
+    }
+
+    if(m.chargeTimer <= 0){
+      m.chargeState = "idle";
+      m.phaseTimer = 2.2 + Math.random()*1.2;
+    }
+    return;
+  }
+
+  // idle: 플레이어를 천천히 추격
+  const dx = p.x - m.x;
+  const dy = p.y - m.y;
+  const dist = Math.hypot(dx, dy) || 0.0001;
+  const stopDist = PLAYER_RADIUS + m.radius + 10;
+  if(dist > stopDist){
+    const nx = dx/dist, ny = dy/dist;
+    m.x += nx * m.speed * dt;
+    m.y += ny * m.speed * dt;
+    m.facing = nx > 0 ? 1 : -1;
+    m.walkCycle += dt * 6;
+  } else {
+    damagePlayer(m.contactDamage * 0.5);
+  }
+
+  m.phaseTimer -= dt;
+  m.burstCooldown -= dt;
+
+  if(m.phaseTimer <= 0){
+    m.phaseTimer = 3.0 + Math.random()*1.5;
+    if(Math.random() < 0.5){
+      // 돌진 패턴 시작
+      m.chargeState = "charging";
+      m.chargeTimer = 0.5;
+      m.chargeTargetX = p.x;
+      m.chargeTargetY = p.y;
+    } else if(m.burstCooldown <= 0){
+      // 방사형 버스트 패턴
+      m.burstCooldown = 3.5;
+      const bulletCount = 8;
+      for(let i=0;i<bulletCount;i++){
+        const ang = (Math.PI*2 / bulletCount) * i;
+        fireProjectileInDirection(m.x, m.y, ang, {
+          speed: 190,
+          damage: 12 + Math.floor(game.stage * 0.4),
+          color: "#ffae00",
+          radius: 7
+        });
+      }
+    }
+  }
+}
+
+function damagePlayer(amount){
+  const p = game.player;
+  if(p.invuln > 0) return;
+  p.hp -= amount;
+  p.invuln = 0.35;
+  spawnHitParticles(p.x, p.y, "#ff0044");
+}
+
+/* =========================================================
+   투사체 시스템 (원거리 몬스터 / 보스 패턴 공용)
+========================================================= */
+function fireProjectileAt(fromX, fromY, toX, toY, opts){
+  const dx = toX - fromX, dy = toY - fromY;
+  const len = Math.hypot(dx, dy) || 0.0001;
+  fireProjectileInDirection(fromX, fromY, Math.atan2(dy, dx), opts);
+}
+
+function fireProjectileInDirection(fromX, fromY, angle, opts){
+  game.projectiles.push({
+    x: fromX,
+    y: fromY,
+    vx: Math.cos(angle) * opts.speed,
+    vy: Math.sin(angle) * opts.speed,
+    damage: opts.damage,
+    color: opts.color,
+    radius: opts.radius,
+    life: 4.0,
+    age: 0
+  });
+}
+
+function updateProjectiles(dt){
+  const p = game.player;
+  for(const pr of game.projectiles){
+    pr.age += dt;
+    pr.x += pr.vx * dt;
+    pr.y += pr.vy * dt;
+
+    if(pr.dead) continue;
+
+    const dx = p.x - pr.x;
+    const dy = p.y - pr.y;
+    const dist = Math.hypot(dx, dy);
+    if(dist <= PLAYER_RADIUS + pr.radius){
+      damagePlayer(pr.damage);
+      pr.dead = true;
+    }
+  }
+  game.projectiles = game.projectiles.filter(pr =>
+    !pr.dead && pr.age < pr.life &&
+    pr.x > -30 && pr.x < W+30 && pr.y > -30 && pr.y < H+30
+  );
+}
+
+function updateParticles(dt){
+  for(const pt of game.particles){
+    pt.age += dt;
+    pt.x += pt.vx * dt;
+    pt.y += pt.vy * dt;
+    pt.vx *= 0.92;
+    pt.vy *= 0.92;
+  }
+  game.particles = game.particles.filter(pt => pt.age < pt.life);
+}
+
+function updateDamagePopups(dt){
+  for(const d of game.damagePopups){
+    d.age += dt;
+    d.y += d.vy * dt;
+  }
+  game.damagePopups = game.damagePopups.filter(d => d.age < d.life);
+}
+
+function updateAutoGold(dt){
+  const rate = getEffectiveAutoGold();
+  if(rate <= 0) return;
+  game.autoGoldAccum += rate * dt;
+  if(game.autoGoldAccum >= 1){
+    const gain = Math.floor(game.autoGoldAccum);
+    game.autoGoldAccum -= gain;
+    save.gold += gain;
+    refreshGoldUI();
+  }
+}
+
+function spawnLoop(dt){
+  if(isBossStage(game.stage)){
+    // 보스 스테이지: 보스가 아직 없고, 아직 클리어 전이면 1회만 스폰
+    if(!game.isBossActive && game.monstersKilledThisStage < game.monstersToKill){
+      spawnBoss();
+      game.isBossActive = true;
+    }
+    return;
+  }
+
+  if(game.monstersKilledThisStage >= game.monstersToKill) return;
+  const aliveOrQueued = game.monsters.length;
+  const remainingToSpawn = game.monstersToKill - game.monstersKilledThisStage - aliveOrQueued;
+  if(remainingToSpawn <= 0) return;
+
+  game.spawnTimer -= dt;
+  if(game.spawnTimer <= 0){
+    spawnMonster();
+    game.spawnTimer = spawnIntervalForStage(game.stage);
+  }
+}
+
+function checkGameOver(){
+  if(game.player.hp <= 0 && !game.gameOver){
+    game.gameOver = true;
+    game.paused = true;
+    writeSave();
+    showGameOver();
+  }
+}
+
+/* =========================================================
+   10. 스테이지 클리어 / 버프 선택
+========================================================= */
+function onStageClear(){
+  game.paused = true;
+  if(game.stage > save.bestStage){
+    save.bestStage = game.stage;
+    writeSave();
+  }
+  showStageBanner("STAGE " + game.stage + " CLEAR!");
+  setTimeout(()=>{ showBuffChoices(); }, 600);
+}
+
+function showStageBanner(text){
+  stageBannerEl.textContent = text;
+  stageBannerEl.style.opacity = "1";
+  stageBannerEl.style.transition = "opacity 0.3s";
+  setTimeout(()=>{ stageBannerEl.style.opacity = "0"; }, 1000);
+}
+
+function showBuffChoices(){
+  const choices = rollBuffChoices();
+  buffCardsEl.innerHTML = "";
+  choices.forEach(buff=>{
+    const card = document.createElement("div");
+    card.className = "buffCard";
+    card.innerHTML = `
+      <div class="buffIcon">${buff.icon}</div>
+      <div class="buffName">${buff.name}</div>
+      <div class="buffDesc">${buff.desc}</div>
+    `;
+    card.addEventListener("click", ()=>{
+      buff.apply();
+      buffOverlay.style.display = "none";
+      nextStage();
+    });
+    buffCardsEl.appendChild(card);
+  });
+  buffOverlay.style.display = "flex";
+}
+
+function nextStage(){
+  game.stage++;
+  game.monstersToKill = isBossStage(game.stage) ? 1 : monstersToKillForStage(game.stage);
+  game.monstersKilledThisStage = 0;
+  game.monsters = [];
+  game.projectiles = [];
+  game.isBossActive = false;
+  game.spawnTimer = 0;
+  game.paused = false;
+  updateStageInfo();
+  updateMonsterInfo();
+}
+
+/* =========================================================
+   11. 게임 오버 / 재시작
+========================================================= */
+function showGameOver(){
+  gameOverStatsEl.textContent =
+    `도달 스테이지: ${game.stage}  |  최고 기록: ${save.bestStage}  |  보유 골드: ${save.gold} G`;
+  gameOverOverlay.style.display = "flex";
+}
+
+function resetRun(){
+  game.stage = 1;
+  game.monstersToKill = monstersToKillForStage(1);
+  game.monstersKilledThisStage = 0;
+  game.monsters = [];
+  game.projectiles = [];
+  game.isBossActive = false;
+  game.particles = [];
+  game.damagePopups = [];
+  game.spawnTimer = 0;
+  game.gameOver = false;
+  game.paused = false;
+  game.player.x = W/2;
+  game.player.y = H/2;
+  game.player.hp = game.player.maxHp;
+  game.player.swingActive = false;
+  game.player.swingProgress = 0;
+  game.player.autoCooldown = 0;
+  game.player.spinHitSet = null;
+  game.runBuffs = { atkMult: 1.0, speedMult: 1.0, critChance: 0.05, hpOnKill: 0 };
+
+  gameOverOverlay.style.display = "none";
+  updateStageInfo();
+  updateMonsterInfo();
+}
+
+restartBtn.addEventListener("click", resetRun);
+
+/* =========================================================
+   12. 렌더링
+========================================================= */
+function render(){
+  ctx.clearRect(0,0,W,H);
+
+  drawBackgroundGrid();
+  drawMonsters();
+  drawProjectiles();
+  drawPlayer();
+  drawParticles();
+  drawDamagePopups();
+}
+
+function drawBackgroundGrid(){
+  ctx.save();
+  ctx.strokeStyle = currentGridColor;
+  ctx.lineWidth = 1;
+  const gridSize = 40;
+  for(let x=0;x<=W;x+=gridSize){
+    ctx.beginPath();
+    ctx.moveTo(x,0);
+    ctx.lineTo(x,H);
+    ctx.stroke();
+  }
+  for(let y=0;y<=H;y+=gridSize){
+    ctx.beginPath();
+    ctx.moveTo(0,y);
+    ctx.lineTo(W,y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/*
+  --- 로블록스 스타일 블록 캐릭터 렌더링 (요구사항 3 핵심 수정) ---
+  머리(원통형 박스) + 몸통(사다리꼴 블록) + 팔/다리(원통 블록)로 구성.
+  걷는 동안 다리가 가위 모양으로 교차 움직이고, 이동 방향에 따라 좌우반전.
+*/
+function drawBlockCharacter(x, y, opts){
+  const {
+    facing = 1,
+    walkCycle = 0,
+    isMoving = false,
+    bodyColor = "#3a7bd5",
+    limbColor = "#2c2c34",
+    headColor = "#ffd9a0",
+    glowColor = null,
+    flashWhite = false,
+    scale = 1
+  } = opts;
+
+  const legSwing = isMoving ? Math.sin(walkCycle) * 14 : 0;
+  const armSwing = isMoving ? Math.sin(walkCycle + Math.PI) * 10 : 0;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(facing * scale, scale);
+
+  if(glowColor){
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 14;
+  }
+
+  const headFill = flashWhite ? "#ffffff" : headColor;
+  const bodyFill = flashWhite ? "#ffffff" : bodyColor;
+  const limbFill = flashWhite ? "#ffffff" : limbColor;
+
+  // 뒤쪽 다리 (원근감용, 살짝 어둡게)
+  ctx.fillStyle = limbFill;
+  ctx.fillRect(-7 - legSwing*0.3, 8, 7, 16);
+  // 뒤쪽 팔
+  ctx.fillRect(9, -2 - armSwing*0.3, 6, 14);
+
+  // 몸통 (사다리꼴 느낌의 블록)
+  ctx.fillStyle = bodyFill;
+  ctx.strokeStyle = "rgba(0,0,0,0.4)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-9, -10);
+  ctx.lineTo(9, -10);
+  ctx.lineTo(8, 11);
+  ctx.lineTo(-8, 11);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // 앞쪽 다리
+  ctx.fillStyle = limbFill;
+  ctx.fillRect(0 + legSwing*0.3, 8, 7, 16);
+  ctx.fillRect(-7 + legSwing*0.3 - 7, 8, 0, 0); // no-op 유지(구조 정합용)
+
+  // 앞쪽 팔
+  ctx.fillRect(-15, -2 + armSwing*0.3, 6, 14);
+
+  // 머리 (둥근 사각형 블록)
+  ctx.fillStyle = headFill;
+  roundRectPath(-8, -26, 16, 16, 3);
+  ctx.fill();
+  ctx.stroke();
+
+  // 얼굴 표정 (단순 점 눈)
+  ctx.fillStyle = "#222";
+  ctx.fillRect(-4, -19, 2.5, 2.5);
+  ctx.fillRect(2, -19, 2.5, 2.5);
+
+  ctx.restore();
+}
+
+function roundRectPath(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
+function drawPlayer(){
+  const p = game.player;
+
+  drawBlockCharacter(p.x, p.y, {
+    facing: p.facing,
+    walkCycle: p.walkCycle,
+    isMoving: p.isMoving,
+    bodyColor: "#00b3ff",
+    limbColor: "#1c1c28",
+    headColor: "#ffd9a0",
+    glowColor: p.invuln > 0 ? "#ff0044" : "#00ffe0",
+    scale: 1.15
+  });
+
+  // 광선검 (네온 빛나는 효과) - 캐릭터 중심에서 발산
+  const len = getEffectiveSaberLength();
+  const x2 = p.x + Math.cos(p.saberAngle) * len;
+  const y2 = p.y + Math.sin(p.saberAngle) * len;
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(0,255,224,0.35)";
+  ctx.lineWidth = 10;
+  ctx.shadowColor = "#00ffe0";
+  ctx.shadowBlur = 25;
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  ctx.strokeStyle = isLightTheme ? "#0099a8" : "#eafffe";
+  ctx.lineWidth = 3;
+  ctx.shadowColor = "#00ffe0";
+  ctx.shadowBlur = 18;
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "#444";
+  ctx.lineWidth = 6;
+  const handleX = p.x - Math.cos(p.saberAngle)*8;
+  const handleY = p.y - Math.sin(p.saberAngle)*8;
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  ctx.lineTo(handleX, handleY);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawMonsters(){
+  for(const m of game.monsters){
+    const flashing = m.flashTimer > 0;
+    const hpRatio = m.hp / m.maxHp;
+
+    if(m.type === "boss"){
+      drawBossCharacter(m, flashing);
+    } else if(m.type === "ranged"){
+      const hue = 190 + m.hueShift; // 청록/하늘색 계열 -> 원거리 몬스터 시각 구분
+      drawBlockCharacter(m.x, m.y, {
+        facing: m.facing,
+        walkCycle: m.walkCycle,
+        isMoving: true,
+        bodyColor: `hsl(${hue}, 75%, 50%)`,
+        limbColor: `hsl(${hue}, 60%, 25%)`,
+        headColor: `hsl(${hue}, 80%, 65%)`,
+        glowColor: flashing ? "#ff0000" : `hsl(${hue}, 100%, 65%)`,
+        flashWhite: flashing,
+        scale: 0.9
+      });
+    } else if(m.type === "dasher"){
+      drawDasherCharacter(m, flashing);
+    } else if(m.type === "erratic"){
+      const hue = 70 + m.hueShift; // 황록색 계열 -> 불규칙 이동형 구분
+      drawBlockCharacter(m.x, m.y, {
+        facing: m.facing,
+        walkCycle: m.walkCycle,
+        isMoving: true,
+        bodyColor: `hsl(${hue}, 80%, 50%)`,
+        limbColor: `hsl(${hue}, 60%, 25%)`,
+        headColor: `hsl(${hue}, 85%, 65%)`,
+        glowColor: flashing ? "#ff0000" : `hsl(${hue}, 100%, 60%)`,
+        flashWhite: flashing,
+        scale: 0.85
+      });
+    } else {
+      const hue = 280 + m.hueShift; // 보라/핑크 계열 -> 근접 몬스터
+      drawBlockCharacter(m.x, m.y, {
+        facing: m.facing,
+        walkCycle: m.walkCycle,
+        isMoving: true,
+        bodyColor: `hsl(${hue}, 70%, 45%)`,
+        limbColor: `hsl(${hue}, 60%, 25%)`,
+        headColor: `hsl(${hue}, 80%, 60%)`,
+        glowColor: flashing ? "#ff0000" : `hsl(${hue}, 100%, 60%)`,
+        flashWhite: flashing,
+        scale: 0.95
+      });
+    }
+
+    // 체력바 (보스는 더 큰 바 + 위쪽 위치)
+    const barW = m.type === "boss" ? 90 : 34;
+    const barOffsetY = m.type === "boss" ? 70 : 38;
+    const barX = m.x - barW/2;
+    const barY = m.y - barOffsetY;
+    ctx.save();
+    ctx.fillStyle = "#222";
+    ctx.fillRect(barX, barY, barW, m.type === "boss" ? 7 : 4);
+    ctx.fillStyle = hpRatio > 0.5 ? "#00ffe0" : (hpRatio > 0.2 ? "#ffe600" : "#ff0044");
+    ctx.fillRect(barX, barY, barW * Math.max(0,hpRatio), m.type === "boss" ? 7 : 4);
+    if(m.type === "boss"){
+      ctx.strokeStyle = "#ffae00";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(barX, barY, barW, 7);
+    }
+    ctx.restore();
+  }
+}
+
+// 돌진형 전용 렌더링: telegraph(조준) 상태일 때 경고 표시 + dashing 중엔 잔상 느낌의 글로우 강화
+function drawDasherCharacter(m, flashing){
+  const hue = 15 + m.hueShift; // 주황/적색 계열 -> 위협적인 돌진형 구분
+
+  if(m.dashState === "telegraph"){
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,180,0,0.7)";
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([6,5]);
+    ctx.shadowColor = "#ffae00";
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(m.x, m.y);
+    ctx.lineTo(m.telegraphTargetX, m.telegraphTargetY);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  const isDashing = m.dashState === "dashing";
+  drawBlockCharacter(m.x, m.y, {
+    facing: m.facing,
+    walkCycle: m.walkCycle,
+    isMoving: true,
+    bodyColor: `hsl(${hue}, 75%, 48%)`,
+    limbColor: `hsl(${hue}, 60%, 25%)`,
+    headColor: `hsl(${hue}, 85%, 60%)`,
+    glowColor: flashing ? "#ff0000" : (isDashing ? "#ffffff" : `hsl(${hue}, 100%, 55%)`),
+    flashWhite: flashing,
+    scale: isDashing ? 1.05 : 1.0
+  });
+}
+
+// 보스 전용 렌더링: 일반 블록 캐릭터보다 크고, 돌진 조준 중일 때 경고 라인을 표시
+function drawBossCharacter(m, flashing){
+  if(m.chargeState === "charging"){
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,45,45,0.6)";
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8,6]);
+    ctx.shadowColor = "#ff0000";
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(m.x, m.y);
+    ctx.lineTo(m.chargeTargetX, m.chargeTargetY);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawBlockCharacter(m.x, m.y, {
+    facing: m.facing,
+    walkCycle: m.walkCycle,
+    isMoving: true,
+    bodyColor: flashing ? "#ffffff" : "#7a1230",
+    limbColor: flashing ? "#ffffff" : "#3a0a16",
+    headColor: flashing ? "#ffffff" : "#ff4d4d",
+    glowColor: flashing ? "#ff0000" : "#ffae00",
+    flashWhite: flashing,
+    scale: 2.3
+  });
+}
+
+function drawProjectiles(){
+  for(const pr of game.projectiles){
+    ctx.save();
+    ctx.fillStyle = pr.color;
+    ctx.shadowColor = pr.color;
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(pr.x, pr.y, pr.radius, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawParticles(){
+  for(const pt of game.particles){
+    const alpha = 1 - (pt.age / pt.life);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, alpha);
+    ctx.fillStyle = pt.color;
+    ctx.shadowColor = pt.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawDamagePopups(){
+  const normalColor = isLightTheme ? "#222630" : "#fff";
+  const normalShadow = isLightTheme ? "#0099a8" : "#00ffe0";
+  for(const d of game.damagePopups){
+    const alpha = 1 - (d.age / d.life);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, alpha);
+    ctx.font = d.isCrit ? "bold 18px Consolas" : "14px Consolas";
+    ctx.fillStyle = d.isCrit ? "#ffe600" : normalColor;
+    ctx.shadowColor = d.isCrit ? "#ffe600" : normalShadow;
+    ctx.shadowBlur = 6;
+    ctx.textAlign = "center";
+    ctx.fillText((d.isCrit ? "CRIT! " : "") + d.value, d.x, d.y);
+    ctx.restore();
+  }
+}
+
+/* =========================================================
+   13. UI 갱신 (HUD / 상점)
+========================================================= */
+function updateStageInfo(){
+  stageInfoEl.textContent = "STAGE " + game.stage + (isBossStage(game.stage) ? " ⚠ BOSS" : "");
+}
+function updateMonsterInfo(){
+  if(isBossStage(game.stage)){
+    const boss = game.monsters.find(m => m.type === "boss");
+    if(boss){
+      const pct = Math.max(0, Math.round((boss.hp / boss.maxHp) * 100));
+      monsterInfoEl.textContent = "보스 체력: " + pct + "%";
+    } else {
+      monsterInfoEl.textContent = "보스 출현 중...";
+    }
+    return;
+  }
+  const remaining = game.monstersToKill - game.monstersKilledThisStage;
+  monsterInfoEl.textContent = "남은 몬스터: " + Math.max(0, remaining);
+}
+function updateHpUI(){
+  const ratio = Math.max(0, game.player.hp) / game.player.maxHp;
+  hpBarInner.style.width = (ratio*100) + "%";
+  hpText.textContent = Math.max(0, Math.round(game.player.hp)) + " / " + game.player.maxHp;
+}
+function refreshGoldUI(){
+  goldText.textContent = "GOLD: " + save.gold;
+  shopGoldEl.textContent = save.gold;
+  renderShop();
+}
+
+/* =========================================================
+   14. 상점 렌더링
+========================================================= */
+const upgradeGrid = document.getElementById("upgradeGrid");
+
+function renderShop(){
+  upgradeGrid.innerHTML = "";
+  upgradeDefs.forEach(def=>{
+    const level = save.levels[def.key];
+    const cost = upgradeCost(def);
+    const curVal = upgradeCurrentValue(def);
+    const nextVal = def.baseValue + def.perLevel * (level+1);
+
+    const card = document.createElement("div");
+    card.className = "upgradeCard";
+    card.innerHTML = `
+      <div class="upgradeTitle"><span>${def.name}</span><span>Lv.${level}</span></div>
+      <div class="upgradeDesc">${def.desc}</div>
+      <div class="upgradeDesc">현재: ${formatVal(curVal)}${def.unit} → 다음: ${formatVal(nextVal)}${def.unit}</div>
+      <button class="upgradeBtn" data-key="${def.key}" ${save.gold < cost ? "disabled" : ""}>
+        강화하기 (${cost} G)
+      </button>
+    `;
+    upgradeGrid.appendChild(card);
+  });
+
+  upgradeGrid.querySelectorAll(".upgradeBtn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const key = btn.getAttribute("data-key");
+      buyUpgrade(key);
+    });
+  });
+}
+
+function formatVal(v){
+  return Number.isInteger(v) ? v : v.toFixed(2);
+}
+
+function buyUpgrade(key){
+  const def = upgradeDefs.find(d=>d.key===key);
+  const cost = upgradeCost(def);
+  if(save.gold < cost) return;
+  save.gold -= cost;
+  save.levels[key]++;
+  writeSave();
+  refreshGoldUI();
+}
+
+const confirmOverlay = document.getElementById("confirmOverlay");
+const confirmYesBtn = document.getElementById("confirmYesBtn");
+const confirmNoBtn = document.getElementById("confirmNoBtn");
+
+document.getElementById("resetBtn").addEventListener("click", ()=>{
+  confirmOverlay.style.display = "flex";
+});
+
+confirmYesBtn.addEventListener("click", ()=>{
+  confirmOverlay.style.display = "none";
+  save = defaultSave();
+  writeSave();
+  resetRun();
+  refreshGoldUI();
+});
+
+confirmNoBtn.addEventListener("click", ()=>{
+  confirmOverlay.style.display = "none";
+});
+
+/* =========================================================
+   15. 메인 루프
+========================================================= */
+function loop(timestamp){
+  if(!game.lastTime) game.lastTime = timestamp;
+  let dt = (timestamp - game.lastTime) / 1000;
+  game.lastTime = timestamp;
+  dt = Math.min(dt, 0.05);
+
+  update(dt);
+  render();
+  updateHpUI();
+
+  requestAnimationFrame(loop);
+}
+
+/* =========================================================
+   16. 초기화
+========================================================= */
+updateStageInfo();
+updateMonsterInfo();
+refreshGoldUI();
+updateHpUI();
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
