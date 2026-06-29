@@ -1105,13 +1105,18 @@ const upgradeDefs = [
     maxLevel: 50
   },
   {
-    key: "saberLength",
-    name: "광선검 길이",
-    desc: "광선검의 길이가 늘어나 더 넓은 범위를 타격합니다.",
+    // 기존 "광선검 길이" 강화를 대체. 길이 강화는 레벨업할수록 한 스윙에 동시에 맞는 적의 수가
+    // 그대로 늘어나 사실상 무제한 곱연산 효과를 내는 문제가 있었고(다른 무기/강화 선택을 무가치하게
+    // 만드는 "적폐" 강화), 그 자리를 선형으로만 누적되는 안전한 생존 스탯으로 대체한다.
+    // 이렇게 하면 광선검/듀얼세이버/광선창의 길이-속도-한방 트레이드오프가 영구 강화로 무력화되지 않고
+    // 무기 선택 자체가 의미 있는 의사결정으로 남는다.
+    key: "maxHp",
+    name: "최대 체력",
+    desc: "최대 체력이 증가해 전투에서 더 오래 버틸 수 있습니다.",
     baseCost: 12,
-    baseValue: 70,
-    perLevel: 6,
-    unit: "px",
+    baseValue: 100,
+    perLevel: 8,
+    unit: "",
     maxLevel: 50
   },
   {
@@ -1342,7 +1347,7 @@ function checkAchievements(){
 function defaultSave(){
   return {
     gold: 0,
-    levels: { atk: 0, atkSpeed: 0, saberLength: 0, autoGold: 0 },
+    levels: { atk: 0, atkSpeed: 0, maxHp: 0, autoGold: 0 },
     bestStage: 1,
     costumeId: "default",
     ownedWeaponIds: [],
@@ -1361,6 +1366,16 @@ function loadSave(){
     const parsed = JSON.parse(raw);
     const d = defaultSave();
     const mergedLevels = Object.assign(d.levels, parsed.levels || {});
+
+    // 마이그레이션: "광선검 길이" 강화는 길이가 길수록 한 스윙에 동시에 맞는 적의 수가 그대로 늘어나
+    // 무제한 곱연산 효과를 내는 문제가 있어 제거하고, 그 자리를 "최대 체력"으로 대체했다.
+    // 과거에 saberLength에 투자했던 골드/시간이 그냥 증발하면 불공평하므로, 남아있던 레벨만큼
+    // maxHp 레벨로 그대로 이전한다 (이미 maxHp에 직접 투자한 레벨이 있다면 더 높은 쪽을 우선).
+    if(typeof mergedLevels.saberLength === "number" && mergedLevels.saberLength > 0){
+      mergedLevels.maxHp = Math.max(mergedLevels.maxHp || 0, mergedLevels.saberLength);
+    }
+    delete mergedLevels.saberLength; // 더 이상 존재하지 않는 강화이므로 세이브에서도 완전히 제거
+
     // 과거 버전 세이브에 레벨 캡(maxLevel) 도입 전 값이 남아있을 경우를 대비한 클램프
     upgradeDefs.forEach(def => {
       if(mergedLevels[def.key] > def.maxLevel) mergedLevels[def.key] = def.maxLevel;
@@ -1514,9 +1529,19 @@ speedToggleBtn.addEventListener("click", ()=>{
 /* =========================================================
    2. 게임 상태
 ========================================================= */
+// PLAYER_BASE_MAXHP는 upgradeDefs의 "maxHp" 강화(key: "maxHp")의 baseValue(100)와 항상 같아야 한다.
+// 영구 레벨 0일 때의 최대 체력이 곧 이 기본값이기 때문 — upgradeCurrentValue()가 레벨 0이면
+// baseValue를 그대로 반환하므로, 두 값을 어긋나게 두면 "레벨 0인데 표시되는 체력이 다른" 혼란이 생긴다.
 const PLAYER_BASE_MAXHP = 100;
 const PLAYER_BASE_MOVE_SPEED = 200; // px/s
 const PLAYER_RADIUS = 18; // 몸통 충돌/그리기 기준 반경
+
+// 광선검의 절대 길이(px) 기준값. 기존에는 영구 상점의 "광선검 길이" 레벨업으로 늘어났지만,
+// 길이가 길수록 한 스윙에 동시에 맞는 적의 수가 그대로 늘어나 무제한 곱연산 효과를 내는 문제가 있어
+// 그 강화 슬롯을 "최대 체력"으로 대체했다. 길이는 이제 무기 자체의 lengthMult(상대 배율)와
+// 런 버프(거인화/정밀한 참격의 saberLengthMult)로만 변하는 고정 기준값이 되어, 무기 선택이
+// "길이-속도-한방"의 진짜 트레이드오프로 남는다.
+const SABER_BASE_LENGTH = 100;
 
 let game = {
   paused: false,
@@ -2285,6 +2310,7 @@ function renderStatsPanel(){
     ["예상 DPS (단일 타겟)", estimatedDps.toFixed(1)],
     ["공격력", atk.toFixed(1) + (rb.atkMult >= ATK_MULT_SOFT_CAP ? " (효율 감소 구간)" : "")],
     ["공격 속도", atkSpd.toFixed(2) + " /s" + (rb.speedMult >= SPEED_MULT_CAP ? " (MAX)" : "")],
+    ["최대 체력", game.player.maxHp + (game.player.maxHp < getEffectiveMaxHp() ? " (페널티 적용 중)" : "")],
     ["광선검 길이", getEffectiveSaberLength().toFixed(0) + " px"],
     ["이동 속도", getEffectiveMoveSpeed().toFixed(0) + " px/s"],
     ["치명타 확률", Math.round(critChance * 100) + " %" + (rb.critChance >= CRIT_CHANCE_CAP ? " (MAX)" : "")],
@@ -2511,8 +2537,15 @@ function getEffectiveCritChance(){
   return CRIT_SOFT_CAP_THRESHOLD + room * (1 - Math.exp(-excess * 2));
 }
 function getEffectiveSaberLength(){
-  const base = upgradeCurrentValue(upgradeDefs.find(d=>d.key==="saberLength"));
-  return base * getCurrentWeapon().lengthMult * game.runBuffs.saberLengthMult;
+  // 영구 레벨로 늘어나던 길이를 제거하고, 무기 자체의 lengthMult(상대 배율)와
+  // 런 버프(거인화/정밀한 참격)로만 변하는 고정 기준값(SABER_BASE_LENGTH)을 사용한다.
+  return SABER_BASE_LENGTH * getCurrentWeapon().lengthMult * game.runBuffs.saberLengthMult;
+}
+// 영구 레벨 기반 최대 체력. 광선검 길이 강화를 대체한 자리로, 곱연산 없이 선형으로만 누적되는
+// 안전한 생존 스탯이다. 유리 대포 등 런 중 페널티(*0.7)는 resetRun에서 이 값을 기준으로 다시 적용되므로
+// 여기서는 영구 레벨만 반영한 "이번 런 시작 시점의" 최대 체력을 돌려준다.
+function getEffectiveMaxHp(){
+  return upgradeCurrentValue(upgradeDefs.find(d=>d.key==="maxHp"));
 }
 function getEffectiveAutoGold(){
   const base = upgradeCurrentValue(upgradeDefs.find(d=>d.key==="autoGold"));
@@ -3837,7 +3870,7 @@ function resetRun(){
   game.paused = false;
   game.player.x = W/2;
   game.player.y = H/2;
-  game.player.maxHp = PLAYER_BASE_MAXHP; // 유리 대포 등으로 깎였던 최대 체력도 새 런에서는 기본값으로 복원
+  game.player.maxHp = getEffectiveMaxHp(); // 영구 "최대 체력" 레벨을 반영해 매 런 시작 시 최대 체력을 결정
   game.player.hp = game.player.maxHp;
   game.player.swingActive = false;
   game.player.swingProgress = 0;
@@ -4540,6 +4573,17 @@ function buyUpgrade(key){
   save.levels[key]++;
   writeSave();
   refreshGoldUI();
+
+  // 최대 체력은 atk/atkSpeed/autoGold와 달리 매 프레임 재계산되는 값이 아니라
+  // resetRun() 시점에 한 번 고정되는 값(game.player.maxHp)이라, 상점에서 즉시 구매해도
+  // 현재 진행 중인 런에는 반영되지 않는 문제가 있다. 늘어난 만큼을 현재 체력에도 그대로 더해줘서
+  // "강화를 사자마자 체력이 차오르는" 직관적인 피드백을 준다 (페널티로 깎인 상태를 다시 부풀리지 않도록
+  // maxHp 자체를 다시 계산하기보다 증가분만 가산).
+  if(key === "maxHp" && !game.gameOver){
+    const increment = def.perLevel;
+    game.player.maxHp += increment;
+    game.player.hp += increment;
+  }
 }
 
 const confirmOverlay = document.getElementById("confirmOverlay");
@@ -4611,9 +4655,19 @@ importFileInput.addEventListener("change", (e)=>{
         : parsed;
 
       const d = defaultSave();
+      const mergedLevels = Object.assign({}, d.levels, (rawData.levels && typeof rawData.levels === "object") ? rawData.levels : {});
+      // 가져오기(import)한 세이브에도 동일한 마이그레이션 적용: 예전 "광선검 길이" 레벨을 "최대 체력"으로 이전
+      if(typeof mergedLevels.saberLength === "number" && mergedLevels.saberLength > 0){
+        mergedLevels.maxHp = Math.max(mergedLevels.maxHp || 0, mergedLevels.saberLength);
+      }
+      delete mergedLevels.saberLength;
+      upgradeDefs.forEach(def => {
+        if(mergedLevels[def.key] > def.maxLevel) mergedLevels[def.key] = def.maxLevel;
+      });
+
       const merged = {
         gold: typeof rawData.gold === "number" && rawData.gold >= 0 ? rawData.gold : d.gold,
-        levels: Object.assign({}, d.levels, (rawData.levels && typeof rawData.levels === "object") ? rawData.levels : {}),
+        levels: mergedLevels,
         bestStage: typeof rawData.bestStage === "number" && rawData.bestStage >= 1 ? rawData.bestStage : d.bestStage,
         costumeId: typeof rawData.costumeId === "string" ? rawData.costumeId : d.costumeId,
         ownedWeaponIds: Array.isArray(rawData.ownedWeaponIds) ? rawData.ownedWeaponIds : d.ownedWeaponIds,
@@ -4631,6 +4685,14 @@ importFileInput.addEventListener("change", (e)=>{
       renderWeaponPanel();
       renderAchievementsPanel();
       renderTrophyPanel();
+      // 가져온 세이브의 "최대 체력" 레벨을 현재 진행 중인 런에도 즉시 반영 (buyUpgrade와 동일한 이유:
+      // maxHp는 매 프레임 재계산되는 값이 아니라 resetRun() 시점에 고정되는 값이라 별도 갱신이 필요함)
+      if(!game.gameOver){
+        const newMaxHp = getEffectiveMaxHp();
+        const diff = newMaxHp - game.player.maxHp;
+        game.player.maxHp = newMaxHp;
+        game.player.hp = Math.max(1, Math.min(game.player.maxHp, game.player.hp + diff));
+      }
       alert("세이브 파일을 불러왔습니다.");
     }catch(err){
       alert("세이브 파일을 읽을 수 없습니다. 올바른 JSON 파일인지 확인해 주세요.");
@@ -4817,6 +4879,13 @@ function loop(timestamp){
 /* =========================================================
    16. 초기화
 ========================================================= */
+// game 객체 리터럴은 모듈 평가 시점의 기본값(PLAYER_BASE_MAXHP)으로 maxHp/hp를 채워두는데,
+// 이 시점은 save 데이터 로드 이후이므로 영구 "최대 체력" 레벨을 아직 반영하지 못한 상태다.
+// resetRun() 전체를 호출하면 스테이지가 1로 강제되어 페이지를 새로고침할 때마다 진행이 끊기므로,
+// 체력만 영구 레벨 기준으로 맞춰준다 (게임 중간에 새로고침해도 합당한 최대체력으로 시작하도록).
+game.player.maxHp = getEffectiveMaxHp();
+game.player.hp = game.player.maxHp;
+
 updateStageInfo();
 updateMonsterInfo();
 refreshGoldUI();
