@@ -2144,11 +2144,13 @@ function spawnMonster(forcedType){
     }));
   } else if(type === "dasher"){
     // 돌진형: 평소엔 느리게 거리를 좁히다가, 사거리 안에 들어오면 잠깐 멈춰 조준(텔레그래프) 후 고속 직선 돌진
+    // 체력을 상향(1.1배 -> 1.4배)해, 돌진 한 번 피하고 끝나는 게 아니라 여러 차례 견제해야 하는
+    // 좀 더 묵직한 위협으로 조정.
     game.monsters.push(Object.assign(base, {
       type: "dasher",
       radius: 16,
-      hp: Math.floor(hp * 1.1),
-      maxHp: Math.floor(hp * 1.1),
+      hp: Math.floor(hp * 1.4),
+      maxHp: Math.floor(hp * 1.4),
       speed: monsterBaseSpeed(stage) * 0.6,    // 평상시엔 오히려 느림 -> 돌진의 의외성을 강조
       dashSpeed: monsterBaseSpeed(stage) * 3.2,
       dashRange: 220,                          // 이 거리 안에 들어오면 돌진 시도
@@ -2161,12 +2163,15 @@ function spawnMonster(forcedType){
     }));
   } else if(type === "erratic"){
     // 불규칙 이동형: 플레이어를 향해 다가오되, 사인파 노이즈를 섞어 지그재그/회피성 움직임을 보임
+    // 속도를 대폭 상향(1.05배 -> 2.8배)해 "불규칙"이라는 컨셉에 걸맞은 강한 임팩트를 줌.
+    // dasher의 순간 돌진(3.2배)보다는 낮지만, erratic은 그 속도를 지속적으로 유지한다는 점에서
+    // 평균 체감 위협도는 오히려 더 높을 수 있다.
     game.monsters.push(Object.assign(base, {
       type: "erratic",
       radius: 13,
       hp: Math.floor(hp * 0.85),
       maxHp: Math.floor(hp * 0.85),
-      speed: monsterBaseSpeed(stage) * 1.05,
+      speed: monsterBaseSpeed(stage) * 2.8,
       noiseSeed: Math.random() * 1000,
       noisePhase: 0,
       hueShift: Math.random()*30 - 15,
@@ -2688,13 +2693,14 @@ function getEffectiveAtkSpeed(){
   }
   const raw = base * mult;
   // 공격속도 소프트캡: runBuffs.speedMult 자체의 CAP(3.0)은 있지만 그 위에 무기 speedMult(최대 1.4배)와
-  // 광폭화(+0.25)가 곱/가산으로 더 얹히면 실질 상한이 훨씬 높아진다. 6.0/s까지는 그대로 반영하고,
-  // 그 이상은 지수 감쇄로 압축해 절대 9.0/s(약 0.11초당 1타)를 넘지 않도록 한다.
-  const ATK_SPEED_SOFT_CAP = 6.0;
-  const ATK_SPEED_ABSOLUTE_CAP = 9.0;
+  // 광폭화(+0.25)가 곱/가산으로 더 얹히면 실질 상한이 훨씬 높아진다. 4.5/s까지는 그대로 반영하고,
+  // 그 이상은 지수 감쇄로 압축해 절대 7.0/s(약 0.14초당 1타)를 넘지 않도록 한다.
+  // (기존 6.0/9.0에서 하향 조정 — 공속 극단화 시 체감이 과했다는 피드백을 반영)
+  const ATK_SPEED_SOFT_CAP = 4.5;
+  const ATK_SPEED_ABSOLUTE_CAP = 7.0;
   if(raw <= ATK_SPEED_SOFT_CAP) return raw;
   const excess = raw - ATK_SPEED_SOFT_CAP;
-  const room = ATK_SPEED_ABSOLUTE_CAP - ATK_SPEED_SOFT_CAP; // 3.0
+  const room = ATK_SPEED_ABSOLUTE_CAP - ATK_SPEED_SOFT_CAP; // 2.5
   return ATK_SPEED_SOFT_CAP + room * (1 - Math.exp(-excess * 0.15));
 }
 // 치명타 확률: 기본/카드 누적분(critChance, CAP 적용됨) + 정밀한 참격의 별도 가산분(extraCritChance).
