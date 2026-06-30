@@ -1574,7 +1574,6 @@ let game = {
 
   // ---- 요구사항 3/4 신규 상태 ----
   timeBombs: [],          // 시한폭탄 버프로 생성되는 지연 폭발 오브젝트 목록
-  plasmaBursts: [],        // 광선검-투사체 격파 시 발생하는 플라즈마 폭발 이펙트(원형 확산 렌더링용)
   comboCount: 0,           // 처치 연쇄 콤보 카운트 (요구사항 4)
   comboTimer: 0,           // 마지막 처치 이후 경과 시간 (1.8초 초과 시 콤보 리셋)
   cameraShake: { time: 0, duration: 0, magnitude: 0 }, // 화면 흔들림 진행 상태
@@ -1628,6 +1627,12 @@ let game = {
 // 의도적으로 캡을 두지 않지만, 속도/치명타/생명흡수는 일정 수준을 넘으면 게임 자체의 긴장감을
 // 무너뜨리므로(예: 몹 한 마리 죽일 때마다 거의 풀피 회복) 상한을 둔다.
 const SPEED_MULT_CAP = 3.0;     // 기본 1.0 -> 최대 3.0배 (이동속도/공격속도 공용)
+// 스윙 1회의 최소 지속시간(초). 공속이 극단적으로 높아도 이 시간 이하로는 단축되지 않는다.
+// 이 값이 없으면 speedMult=9에서 스윙이 0.02초(=1.2프레임)에 끝나 검이 순간이동하듯 360도를
+// 도는 효과가 나서, 길이가 짧아도 "그냥 밀고 가는" 느낌이 생긴다. 약 4~5프레임(0.07초)은
+// 검이 실제로 호를 그리며 도는 모습이 보여야 길이 차이가 판정과 시각 양쪽에서 체감된다.
+// (DPS에는 영향 없음: 이 값은 autoCooldown의 최소치(=1/9≈0.11초)보다 작아서 병목이 쿨다운이 됨)
+const MIN_SWING_DURATION = 0.07;
 const CRIT_CHANCE_CAP = 0.75;   // 최대 75% (100%는 "확률"의 의미가 없어짐)
 const HP_ON_KILL_CAP = 8;       // 처치당 최대 +8 (기본 체력 100 기준 약 12~13킬이면 풀피)
 
@@ -2573,7 +2578,6 @@ function update(dt){
   updateMonsters(dt);
   updateProjectiles(dt);
   updateParticles(dt);
-  updatePlasmaBursts(dt);
   updateDamagePopups(dt);
   updateAutoGold(dt);
   spawnLoop(dt);
@@ -2705,7 +2709,10 @@ function updateSwing(dt){
   const p = game.player;
   if(!p.swingActive) return;
 
-  const duration = p.swingDuration / game.runBuffs.speedMult;
+  // 공속이 높아도 스윙 1회는 MIN_SWING_DURATION 이상 걸리도록 클램프.
+  // 이 하한이 없으면 speedMult=9에서 0.02초(≈1프레임)에 360도를 돌아
+  // 검이 순간이동하듯 히트박스를 훑어버려 길이 차이가 전혀 체감되지 않는다.
+  const duration = Math.max(MIN_SWING_DURATION, p.swingDuration / game.runBuffs.speedMult);
   const prevAngle = p.saberAngle;
   p.swingProgress += dt / duration;
 
@@ -2760,11 +2767,8 @@ function performSaberHitSwept(prevAngle, newAngle){
   const len = getEffectiveSaberLength();
 
   let delta = newAngle - prevAngle;
-  // 각도 차이가 거의 없으면(스윙 막 시작 시점 등) 최소 1단계는 검사
   const absDelta = Math.abs(delta);
 
-  // 검 끝부분이 한 스텝에 이동하는 거리가 대략 몬스터 최소 반경(약 12px)의 절반을 넘지 않도록
-  // 필요한 단계 수를 계산. 각도 변화가 0이어도 최소 1단계는 보장.
   const maxArcStep = 6; // px, 이 거리 이하로 쪼개면 어떤 크기의 몬스터도 통과시키지 않음
   const arcLength = len * absDelta;
   const steps = Math.max(1, Math.ceil(arcLength / maxArcStep));
@@ -2787,36 +2791,7 @@ function performSaberHitSwept(prevAngle, newAngle){
         dealDamageToMonster(m);
       }
     }
-
-    // 투사체 격파: 검날 선분이 원거리 몬스터의 투사체와 충돌하면 투사체를 즉시 소멸시키고
-    // 그 자리에 플라즈마 폭발(반경 60px 광역 데미지)을 일으킨다 (요구사항 3)
-    for(const pr of game.projectiles){
-      if(pr.dead) continue;
-      const hit = segmentCircleCollision(x1, y1, x2, y2, pr.x, pr.y, pr.radius);
-      if(hit){
-        pr.dead = true;
-        triggerPlasmaExplosion(pr.x, pr.y);
-      }
-    }
   }
-}
-
-// 플라즈마 폭발: 투사체 격파 지점에서 즉시 발생. 반경 60px 내 일반 몬스터에게 기본 공격력의 0.8배 광역 피해.
-// 치명타/치명타폭발을 재유발하지 않는 applySplashDamage 경로를 그대로 재사용한다.
-function triggerPlasmaExplosion(x, y){
-  const radius = 60;
-  const dmg = getEffectiveAtk() * 0.8;
-  for(const m of game.monsters){
-    if(m.dead) continue;
-    const dx = m.x - x, dy = m.y - y;
-    if(dx*dx + dy*dy <= radius*radius){
-      applySplashDamage(m, dmg);
-    }
-  }
-  // 초록색/노란색 파티클 다수 방출
-  spawnHitParticles(x, y, "#39ff6a");
-  spawnHitParticles(x, y, "#e8ff39");
-  game.plasmaBursts.push({ x, y, age: 0, life: 0.35 });
 }
 
 function dealDamageToMonster(m){
@@ -3543,14 +3518,6 @@ function updateParticles(dt){
   game.particles = game.particles.filter(pt => pt.age < pt.life);
 }
 
-// 플라즈마 폭발 이펙트(원형 확산 링) 수명 관리. 실제 데미지는 triggerPlasmaExplosion에서 이미 처리되었고,
-// 여기서는 순수하게 시각 효과(렌더링용 age)만 갱신한다.
-function updatePlasmaBursts(dt){
-  for(const burst of game.plasmaBursts){
-    burst.age += dt;
-  }
-  game.plasmaBursts = game.plasmaBursts.filter(b => b.age < b.life);
-}
 
 function updateDamagePopups(dt){
   for(const d of game.damagePopups){
@@ -3914,9 +3881,8 @@ function resetRun(){
   game.bossRewardPending = false;
   game.acquiredOmniThisRun = false;
 
-  // 요구사항 3/4 신규 상태 초기화
+  // 요구사항 4 신규 상태 초기화
   game.timeBombs = [];
-  game.plasmaBursts = [];
   game.comboCount = 0;
   game.comboTimer = 0;
   game.cameraShake = { time: 0, duration: 0, magnitude: 0 };
@@ -3947,7 +3913,6 @@ function render(){
   drawMonsters();
   drawProjectiles();
   drawTimeBombs();
-  drawPlasmaBursts();
   drawPlayer();
   drawParticles();
   drawDamagePopups();
@@ -4433,25 +4398,6 @@ function drawTimeBombs(){
   }
 }
 
-// 플라즈마 폭발: 투사체 격파 지점에서 빠르게 확산하다 사라지는 초록/노란 원형 링.
-function drawPlasmaBursts(){
-  for(const burst of game.plasmaBursts){
-    const progress = burst.age / burst.life; // 0 -> 1
-    const radius = 8 + progress * 55;
-    const alpha = 1 - progress;
-
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, alpha) * 0.8;
-    ctx.strokeStyle = "#a8ff39";
-    ctx.shadowColor = "#39ff6a";
-    ctx.shadowBlur = 16;
-    ctx.lineWidth = 4 * (1 - progress) + 1;
-    ctx.beginPath();
-    ctx.arc(burst.x, burst.y, radius, 0, Math.PI*2);
-    ctx.stroke();
-    ctx.restore();
-  }
-}
 
 function drawParticles(){
   for(const pt of game.particles){
