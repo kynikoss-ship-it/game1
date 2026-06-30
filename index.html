@@ -1171,10 +1171,6 @@ const weaponDefs = [
   }
 ];
 
-function getOwnedWeapons(){
-  return weaponDefs.filter(w => w.cost === 0 || save.ownedWeaponIds.includes(w.id));
-}
-
 function getCurrentWeapon(){
   const found = weaponDefs.find(w => w.id === save.weaponId);
   if(found && (found.cost === 0 || save.ownedWeaponIds.includes(found.id))) return found;
@@ -1242,10 +1238,6 @@ const costumeDefs = [
     glow: "rgba(20,0,40,0.55)"
   }
 ];
-
-function getUnlockedCostumes(){
-  return costumeDefs.filter(c => save.bestStage >= c.unlockStage);
-}
 
 function getCurrentCostume(){
   const found = costumeDefs.find(c => c.id === save.costumeId);
@@ -1627,11 +1619,14 @@ let game = {
 // 의도적으로 캡을 두지 않지만, 속도/치명타/생명흡수는 일정 수준을 넘으면 게임 자체의 긴장감을
 // 무너뜨리므로(예: 몹 한 마리 죽일 때마다 거의 풀피 회복) 상한을 둔다.
 const SPEED_MULT_CAP = 3.0;     // 기본 1.0 -> 최대 3.0배 (이동속도/공격속도 공용)
-// 스윙 1회의 최소 지속시간(초). 공속이 극단적으로 높아도 이 시간 이하로는 단축되지 않는다.
-// 이 값이 없으면 speedMult=9에서 스윙이 0.02초(=1.2프레임)에 끝나 검이 순간이동하듯 360도를
-// 도는 효과가 나서, 길이가 짧아도 "그냥 밀고 가는" 느낌이 생긴다. 약 4~5프레임(0.07초)은
-// 검이 실제로 호를 그리며 도는 모습이 보여야 길이 차이가 판정과 시각 양쪽에서 체감된다.
-// (DPS에는 영향 없음: 이 값은 autoCooldown의 최소치(=1/9≈0.11초)보다 작아서 병목이 쿨다운이 됨)
+// 스윙 1회의 최소 지속시간(초, 기본 광선검 기준). 공속이 극단적으로 높아도 이 시간 이하로는
+// 단축되지 않는다. 이 값이 없으면 speedMult=9에서 스윙이 0.02초(=1.2프레임)에 끝나 검이
+// 순간이동하듯 360도를 도는 효과가 나서, 길이가 짧아도 "그냥 밀고 가는" 느낌이 생긴다.
+// 약 4~5프레임(0.07초)은 검이 실제로 호를 그리며 도는 모습이 보여야 길이 차이가 판정과
+// 시각 양쪽에서 체감된다. (DPS에는 영향 없음: 이 값은 autoCooldown의 최소치(=1/9≈0.11초)보다
+// 작아서 병목이 쿨다운이 됨)
+// 실제 적용 시에는 이 값을 무기의 speedMult로 나눠 사용한다 (updateSwing 참고) — 그래야
+// 광선창처럼 원래 회전이 느린 무기가 고공속 구간에서도 "느림" 정체성을 잃지 않는다.
 const MIN_SWING_DURATION = 0.07;
 const CRIT_CHANCE_CAP = 0.75;   // 최대 75% (100%는 "확률"의 의미가 없어짐)
 const HP_ON_KILL_CAP = 8;       // 처치당 최대 +8 (기본 체력 100 기준 약 12~13킬이면 풀피)
@@ -2076,10 +2071,16 @@ function applyMonsterSpeedMultToExisting(){
 }
 
 // 보스 체력: 일반 몬스터와 같은 이유(영구 레벨이 maxLevel에서 멈춘 뒤에도 끝없이 벌어지는 문제)로
-// 구간별 성장률을 적용. tier 1~5(stage 50까지)는 기존과 동일한 1.55(보스다운 묵직함 유지),
-// tier 6 이후는 1.25로 완만하게 전환해 초고스테이지에서도 처치 자체가 불가능해지지 않게 한다.
+// 구간별 성장률을 적용한다. tier 1~5(stage 50까지)는 1.55, tier 6 이후도 같은 1.55를 유지한다.
+// [버그 수정] 애초에 tier 1~5는 1.55였고 tier 6+ 만 1.25(이후 1.5)로 낮췄던 의도는 "후반 보스가
+// 너무 안 죽을 정도로 강해지는 것을 막기 위함"이었다. 하지만 이를 1.25로 너무 낮췄던 결과
+// stage 60~70 구간에서 보스 체력이 일반 몬스터보다 더 낮아지는 역전이 발생했었다(자세한 내용은
+// 아래 monsterBaseHP의 구간별 성장률과 비교 참고). 1.5로 1차 보정했을 때도 전환점 근처(stage 60~70)에서
+// ratio가 0.91~0.97로 근소하게 보스가 더 약한 구간이 남아 있어, early와 동일한 1.55로 맞춰
+// 그 구간까지 안전마진을 확보한다. 그래도 stage 300 기준 ratio가 약 6배 수준이라 일반 몬스터보다
+// 지나치게 안 죽는 수준까지 벌어지지는 않는다.
 const BOSS_HP_GROWTH_EARLY = 1.55;  // tier 1~5
-const BOSS_HP_GROWTH_LATE = 1.25;   // tier 6+
+const BOSS_HP_GROWTH_LATE = 1.55;   // tier 6+
 const BOSS_TIER_BREAK = 5;
 function bossBaseHP(stage){
   const tier = stage / BOSS_STAGE_INTERVAL; // 1, 2, 3...
@@ -2709,10 +2710,20 @@ function updateSwing(dt){
   const p = game.player;
   if(!p.swingActive) return;
 
-  // 공속이 높아도 스윙 1회는 MIN_SWING_DURATION 이상 걸리도록 클램프.
-  // 이 하한이 없으면 speedMult=9에서 0.02초(≈1프레임)에 360도를 돌아
-  // 검이 순간이동하듯 히트박스를 훑어버려 길이 차이가 전혀 체감되지 않는다.
-  const duration = Math.max(MIN_SWING_DURATION, p.swingDuration / game.runBuffs.speedMult);
+  // [버그 수정] 기존에는 duration 계산에 무기의 speedMult가 빠져 있어서, 고공속(runBuffs.speedMult)에
+  // 도달하면 모든 무기의 스윙 지속시간이 MIN_SWING_DURATION 하한에 똑같이 깔려버렸다.
+  // 그 결과 "광선창은 회전이 느리다"는 무기 설명 및 설계 의도가 고공속 구간에서는 완전히 무력화되고,
+  // 광선창이 "느림 페널티 없이 길다는 장점만 남는" 최강 무기가 되는 역전 현상이 있었다.
+  // 무기의 speedMult를 전체 배율에 포함시켜, 하한에 도달해도 무기별 상대적인 빠르기 차이가
+  // 그대로 유지되도록 한다 (예: 광선창은 듀얼세이버보다 항상 더 오래 걸림).
+  const totalSpeedMult = game.runBuffs.speedMult * getCurrentWeapon().speedMult;
+  // [버그 수정 2] 하한선(MIN_SWING_DURATION) 자체가 고정값이라, 고공속에서는 분모(totalSpeedMult)가
+  // 커질수록 결국 모든 무기가 그 고정 하한에 똑같이 깔려버려 "무기별 회전 속도 차이"가 사라지는
+  // 문제가 있었다. 하한선도 무기의 speedMult에 반비례하게 적용해, 광선창(0.75배=느림)은 항상
+  // 기본검(1.0배)보다, 기본검은 항상 듀얼세이버(1.4배=빠름)보다 스윙이 오래 걸리는 관계가
+  // 공속이 얼마나 높아지든 끝까지 유지되도록 한다.
+  const minDurationForWeapon = MIN_SWING_DURATION / getCurrentWeapon().speedMult;
+  const duration = Math.max(minDurationForWeapon, p.swingDuration / totalSpeedMult);
   const prevAngle = p.saberAngle;
   p.swingProgress += dt / duration;
 
@@ -2834,6 +2845,12 @@ function dealDamageToMonster(m){
 
 // 치명타 폭발 등, "2차 데미지"를 적용할 때 쓰는 경로. 치명타/폭발을 재유발하지 않는다.
 function applySplashDamage(m, dmg){
+  // [버그 수정] 소환형 보스의 무적 보호막(shieldTimer)을 검 직격(dealDamageToMonster)에서는 체크했지만
+  // 이 경로(치명타 폭발, 시한폭탄 광역 데미지 등)에서는 빠져 있었다. 그 결과 보호막이 켜져 있어도
+  // 광역 데미지로는 관통해서 때릴 수 있는 일관성 버그가 있었다 — 보호막의 의미가 무력화되는 문제이므로
+  // 동일하게 막아준다.
+  if(m.shieldTimer > 0) return;
+
   m.hp -= dmg;
   m.flashTimer = 0.12;
   spawnDamagePopup(m.x, m.y - m.radius, Math.round(dmg), false);
@@ -3794,6 +3811,12 @@ function nextStage(){
    11. 게임 오버 / 재시작
 ========================================================= */
 function showGameOver(){
+  // [버그 수정] update()가 gameOver 상태에서 즉시 return하기 때문에 updateComboTimer가 더 호출되지 않아,
+  // 게임오버 시점의 콤보 카운트가 화면에 그대로 남아있는 시각적 버그가 있었다. 게임오버 화면에서는
+  // 의미가 없는 정보이므로 명시적으로 숨긴다 (game.comboCount 자체는 resetRun에서 다시 초기화됨).
+  game.comboCount = 0;
+  updateComboUI();
+
   const rs = game.runStats;
   const minutes = Math.floor(rs.survivalTime / 60);
   const seconds = Math.floor(rs.survivalTime % 60);
